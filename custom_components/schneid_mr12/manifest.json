@@ -3,9 +3,9 @@
   "name": "Schneid MR-12 Fernwärme",
   "version": "0.1.0",
   "config_flow": true,
-  "documentation": "https://github.com/Schneid/MR-12",
+  "documentation": "https://github.com/rolflied/Schneid-MR12",
   "requirements": [],
   "dependencies": [],
-  "codeowners": ["@DagobertDuck"],
+  "codeowners": ["@rolflied"],
   "iot_class": "local_polling"
 }
