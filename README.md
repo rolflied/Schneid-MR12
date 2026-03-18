@@ -6,6 +6,8 @@ Custom Integration für die **Schneid MR-12 Fernwärme-Übergabestation** via Mo
 
 Die Integration liest Temperaturen, Betriebszustände, Pumpen und den internen Wärmezähler des MR-12 und stellt sie als Home Assistant Entitäten bereit. Schreibbare Parameter (Sollwerte, Betriebsmodi) können optional aktiviert werden.
 
+> **Hinweis:** Diese Integration befindet sich in einem frühen Entwicklungsstadium und wurde an die Bedürfnisse meiner eigenen Anlage angepasst. Es ist möglich, dass andere MR-12-Anlagen abweichende Modbus-Register nutzen oder dass Parameter fehlen, die je nach Anlagenkonfiguration relevant wären. Ich freue mich über Feedback, Fehlermeldungen und Verbesserungsvorschläge – gerne als [Issue](../../issues) oder [Pull Request](../../pulls).
+
 ---
 
 ## Voraussetzungen
