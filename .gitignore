@@ -1,6 +1,14 @@
 # Claude Code lokale Einstellungen
 .claude/
 
+# Entwicklungs-/Hilfsskripte
+CLAUDE.md
+generate_excel.py
+ha_package_fernwaerme.yaml
+modbus_probe.py
+modbus_test.py
+modbus_scan.json
+
 # Binärdateien / Herstellerdokumente
 *.pdf
 *.xlsx
@@ -8,9 +16,6 @@
 *.png
 *.jpg
 *.jpeg
-
-# Modbus-Scan-Ergebnisse
-modbus_scan.json
 
 # ZIP-Dateien
 *.zip
