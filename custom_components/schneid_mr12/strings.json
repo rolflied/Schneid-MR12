@@ -1,0 +1,42 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Schneid MR-12 einrichten",
+        "description": "Verbinde dich mit der Fernwärme-Übergabestation Schneid MR-12 über Modbus TCP.",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "Port (Standard: 502)",
+          "slave_id": "Modbus Slave-ID (Standard: 1)",
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "heating_circuits": "Aktive Heizkreise",
+          "read_only": "Nur-Lese-Modus (keine Schreibzugriffe)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen – bitte IP-Adresse und Port prüfen."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Schneid MR-12 Einstellungen",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "Port",
+          "slave_id": "Modbus Slave-ID",
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "heating_circuits": "Aktive Heizkreise",
+          "read_only": "Nur-Lese-Modus (keine Schreibzugriffe)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen – bitte IP-Adresse und Port prüfen."
+    }
+  }
+}

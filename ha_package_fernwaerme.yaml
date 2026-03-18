@@ -1,0 +1,121 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Schneid MR-12 – Fernwärme Helfer & Kostensensoren
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# INSTALLATION:
+#   1. Diese Datei in das HA-Konfigurations-Verzeichnis kopieren,
+#      z.B. nach: config/packages/schneid_fernwaerme.yaml
+#
+#   2. In configuration.yaml folgendes ergänzen (falls nicht vorhanden):
+#      homeassistant:
+#        packages: !include_dir_merge_named packages/
+#
+#   3. Home Assistant neu starten.
+#
+# ENTITY-IDs PRÜFEN:
+#   Die Entity-ID des Wärmemenge-Sensors aus der Integration muss ggf.
+#   angepasst werden. Standard-Entity-ID (wenn Gerätename "Fernwärme" lautet):
+#     sensor.fernwarme_warmemenge
+#   → In HA unter Einstellungen → Geräte → Schneid MR-12 → Fernwärme
+#     die genaue Entity-ID des "Wärmemenge"-Sensors nachschlagen und
+#     unten bei SENSOR_WAERMEMENGE anpassen.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Fernwärmepreis (händisch einstellbar) ────────────────────────────────────
+input_number:
+  fernwaerme_preis_kwh:
+    name: "Fernwärme Preis pro kWh"
+    min: 0.000
+    max: 1.000
+    step: 0.001
+    unit_of_measurement: "€/kWh"
+    icon: mdi:currency-eur
+    mode: box
+
+# ── Verbrauchszähler (täglich / monatlich) ───────────────────────────────────
+# Quelle: Wärmemenge-Sensor der Integration (Entity-ID ggf. anpassen!)
+utility_meter:
+  fernwaerme_verbrauch_taeglich:
+    source: sensor.fernwarme_warmemenge        # ← Entity-ID anpassen!
+    cycle: daily
+    name: "Fernwärme Verbrauch Täglich"
+
+  fernwaerme_verbrauch_monatlich:
+    source: sensor.fernwarme_warmemenge        # ← Entity-ID anpassen!
+    cycle: monthly
+    name: "Fernwärme Verbrauch Monatlich"
+
+# ── Kostensensoren (Template) ─────────────────────────────────────────────────
+template:
+  - sensor:
+      - name: "Fernwärme Kosten Gesamt"
+        unique_id: schneid_fw_kosten_gesamt
+        unit_of_measurement: "€"
+        state_class: total_increasing
+        icon: mdi:currency-eur
+        state: >-
+          {% set wm    = states('sensor.fernwarme_warmemenge') | float(-1) %}
+          {% set preis = states('input_number.fernwaerme_preis_kwh') | float(0) %}
+          {% if wm < 0 %}
+            {{ none }}
+          {% else %}
+            {{ (wm * preis) | round(2) }}
+          {% endif %}
+        availability: >-
+          {{ states('sensor.fernwarme_warmemenge') not in ['unavailable', 'unknown', 'none'] }}
+
+      - name: "Fernwärme Kosten Täglich"
+        unique_id: schneid_fw_kosten_taeglich
+        unit_of_measurement: "€"
+        state_class: total_increasing
+        icon: mdi:currency-eur
+        state: >-
+          {% set wm    = states('sensor.fernwaerme_verbrauch_taeglich') | float(-1) %}
+          {% set preis = states('input_number.fernwaerme_preis_kwh') | float(0) %}
+          {% if wm < 0 %}
+            {{ none }}
+          {% else %}
+            {{ (wm * preis) | round(2) }}
+          {% endif %}
+        availability: >-
+          {{ states('sensor.fernwaerme_verbrauch_taeglich') not in ['unavailable', 'unknown', 'none'] }}
+
+      - name: "Fernwärme Kosten Monatlich"
+        unique_id: schneid_fw_kosten_monatlich
+        unit_of_measurement: "€"
+        state_class: total_increasing
+        icon: mdi:currency-eur
+        state: >-
+          {% set wm    = states('sensor.fernwaerme_verbrauch_monatlich') | float(-1) %}
+          {% set preis = states('input_number.fernwaerme_preis_kwh') | float(0) %}
+          {% if wm < 0 %}
+            {{ none }}
+          {% else %}
+            {{ (wm * preis) | round(2) }}
+          {% endif %}
+        availability: >-
+          {{ states('sensor.fernwaerme_verbrauch_monatlich') not in ['unavailable', 'unknown', 'none'] }}
+
+      - name: "Fernwärme Verbrauch Gestern"
+        unique_id: schneid_fw_verbrauch_gestern
+        unit_of_measurement: "kWh"
+        device_class: gas
+        state_class: total_increasing
+        icon: mdi:counter
+        state: >-
+          {% set s = states.sensor.fernwaerme_verbrauch_taeglich %}
+          {% if s is not none and s.last_changed is defined %}
+            {{ state_attr('sensor.fernwaerme_verbrauch_taeglich', 'last_period') | float(0) | round(1) }}
+          {% else %}
+            {{ none }}
+          {% endif %}
+
+      - name: "Fernwärme Verbrauch Vormonat"
+        unique_id: schneid_fw_verbrauch_vormonat
+        unit_of_measurement: "kWh"
+        device_class: gas
+        state_class: total_increasing
+        icon: mdi:counter
+        state: >-
+          {{ state_attr('sensor.fernwaerme_verbrauch_monatlich', 'last_period') | float(0) | round(1) }}

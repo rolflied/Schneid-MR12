@@ -1,0 +1,11 @@
+{
+  "domain": "schneid_mr12",
+  "name": "Schneid MR-12 Fernwärme",
+  "version": "1.0.0",
+  "config_flow": true,
+  "documentation": "https://github.com/Schneid/MR-12",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@DagobertDuck"],
+  "iot_class": "local_polling"
+}

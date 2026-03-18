@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Schneid MR-12 einrichten",
+        "description": "Verbinde dich mit der Fernwärme-Übergabestation Schneid MR-12 über Modbus TCP.\n\nStandard-Port: 502 | Standard Slave-ID: 1",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "TCP-Port",
+          "slave_id": "Modbus Slave-ID",
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "heating_circuits": "Aktive Heizkreise",
+          "read_only": "Nur-Lese-Modus (keine Schreibzugriffe)"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname der Übergabestation im Netzwerk.",
+          "port": "Modbus TCP Port (Standard: 502).",
+          "slave_id": "Modbus Slave-Adresse des Reglers (Standard: 1, am Regler einstellbar).",
+          "scan_interval": "Wie oft soll der Regler abgefragt werden (5–3600 Sekunden).",
+          "heating_circuits": "Wähle aus, welche Heizkreise in Home Assistant sichtbar sein sollen.",
+          "read_only": "Im Nur-Lese-Modus werden keine schreibbaren Entitäten (Number, Select) angelegt."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen. Bitte IP-Adresse, Port und Netzwerkverbindung prüfen."
+    },
+    "abort": {
+      "already_configured": "Diese Übergabestation ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Schneid MR-12 – Verbindungseinstellungen",
+        "description": "Ändere die Verbindungsparameter oder das Abfrageintervall.",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "TCP-Port",
+          "slave_id": "Modbus Slave-ID",
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "heating_circuits": "Aktive Heizkreise",
+          "read_only": "Nur-Lese-Modus (keine Schreibzugriffe)"
+        },
+        "data_description": {
+          "heating_circuits": "Wähle aus, welche Heizkreise in Home Assistant sichtbar sein sollen.",
+          "read_only": "Im Nur-Lese-Modus werden keine Number-, Select- oder sonstigen Schreib-Entitäten angelegt."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen. Bitte IP-Adresse und Port prüfen."
+    }
+  }
+}

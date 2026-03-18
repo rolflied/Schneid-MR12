@@ -1,0 +1,25 @@
+# Claude Code lokale Einstellungen
+.claude/
+
+# Binärdateien / Herstellerdokumente
+*.pdf
+*.xlsx
+*.xls
+*.png
+*.jpg
+*.jpeg
+
+# Modbus-Scan-Ergebnisse
+modbus_scan.json
+
+# ZIP-Dateien
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Home Assistant
+*.log
