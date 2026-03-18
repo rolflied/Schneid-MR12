@@ -1,5 +1,7 @@
 # Schneid MR-12 – Home Assistant Integration
 
+![Schneid MR-12](custom_components/schneid_mr12/brand/logo@2x.png)
+
 Custom Integration für die **Schneid MR-12 Fernwärme-Übergabestation** via Modbus TCP.
 
 Die Integration liest Temperaturen, Betriebszustände, Pumpen und den internen Wärmezähler des MR-12 und stellt sie als Home Assistant Entitäten bereit. Schreibbare Parameter (Sollwerte, Betriebsmodi) können optional aktiviert werden.

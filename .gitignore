@@ -13,9 +13,12 @@ modbus_scan.json
 *.pdf
 *.xlsx
 *.xls
-*.png
 *.jpg
 *.jpeg
+
+# Bilder ausschließen, aber brand/-Ordner erlauben
+*.png
+!custom_components/schneid_mr12/brand/*.png
 
 # ZIP-Dateien
 *.zip
