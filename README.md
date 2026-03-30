@@ -2,122 +2,124 @@
 
 ![Schneid MR-12](custom_components/schneid_mr12/brand/logo@2x.png)
 
-Custom Integration für die **Schneid MR-12 Fernwärme-Übergabestation** via Modbus TCP.
+Custom integration for the **Schneid MR-12 district heating transfer station** via Modbus TCP.
 
-Die Integration liest Temperaturen, Betriebszustände, Pumpen und den internen Wärmezähler des MR-12 und stellt sie als Home Assistant Entitäten bereit. Schreibbare Parameter (Sollwerte, Betriebsmodi) können optional aktiviert werden.
+This integration reads temperatures, operating states, pumps, and the internal heat meter of the MR-12 and exposes them as Home Assistant entities. Writable parameters (setpoints, operating modes) can optionally be enabled.
 
-> **Hinweis:** Diese Integration befindet sich in einem frühen Entwicklungsstadium und wurde an die Bedürfnisse meiner eigenen Anlage angepasst. Es ist möglich, dass andere MR-12-Anlagen abweichende Modbus-Register nutzen oder dass Parameter fehlen, die je nach Anlagenkonfiguration relevant wären. Ich freue mich über Feedback, Fehlermeldungen und Verbesserungsvorschläge – gerne als [Issue](../../issues) oder [Pull Request](../../pulls).
+> **Disclaimer:** This is **not** an official integration by Schneid or Home Assistant. It is an independent, community-driven project with no affiliation to Schneid GmbH.
+
+> **Note:** This integration is in an early development stage and has been tailored to the needs of my own system. It is possible that other MR-12 installations use different Modbus registers or that parameters relevant to certain system configurations are missing. I welcome feedback, bug reports, and improvement suggestions – please open an [Issue](../../issues) or [Pull Request](../../pulls).
 
 ---
 
-## Voraussetzungen
+## Prerequisites
 
-- Home Assistant 2024.1 oder neuer
-- Schneid MR-12 mit aktivierter Modbus-TCP-Schnittstelle
-- Netzwerkzugang von Home Assistant zur Übergabestation (Standard-Port: 2001)
-- `pymodbus` ≥ 3.5.0, < 4.0.0 (wird von HA automatisch verwaltet)
+- Home Assistant 2024.1 or newer
+- Schneid MR-12 with Modbus TCP interface enabled
+- Network access from Home Assistant to the transfer station (default port: 2001)
+- `pymodbus` ≥ 3.5.0, < 4.0.0 (managed automatically by HA)
 
 ---
 
 ## Installation
 
-### Manuell
+### Manual
 
-1. Den Ordner `custom_components/schneid_mr12/` in das Verzeichnis `config/custom_components/` deiner Home Assistant Installation kopieren.
-2. Home Assistant neu starten.
+1. Copy the `custom_components/schneid_mr12/` folder into the `config/custom_components/` directory of your Home Assistant installation.
+2. Restart Home Assistant.
 
-### HACS (nicht offiziell gelistet)
+### HACS (not officially listed)
 
-1. HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories
-2. URL dieses Repositories eintragen, Kategorie: **Integration**
-3. Integration installieren und Home Assistant neu starten.
-
----
-
-## Einrichtung
-
-1. **Einstellungen → Geräte & Dienste → Integration hinzufügen**
-2. Nach „Schneid MR-12" suchen und auswählen.
-3. Verbindungsdaten eingeben:
-
-| Feld | Beschreibung | Standard |
-|------|-------------|---------|
-| Host | IP-Adresse der Übergabestation | – |
-| Port | Modbus-TCP-Port | `2001` |
-| Slave-ID | Modbus Slave ID | `1` |
-| Abfrageintervall | Sekunden zwischen Aktualisierungen | `30` |
-| Heizkreise | Aktive Heizkreise (HK0–HK3) | HK1 |
-| Nur-Lesen | Schreibzugriff deaktivieren | nein |
-
-Die Verbindung wird beim Speichern automatisch geprüft.
+1. HACS → Integrations → ⋮ → Custom Repositories
+2. Enter the URL of this repository, category: **Integration**
+3. Install the integration and restart Home Assistant.
 
 ---
 
-## Entitäten
+## Setup
 
-Die Integration erstellt mehrere Unter-Geräte:
+1. **Settings → Devices & Services → Add Integration**
+2. Search for "Schneid MR-12" and select it.
+3. Enter the connection details:
 
-### Hauptgerät
-| Entität | Beschreibung |
-|---------|-------------|
-| Außentemperatur | Aktuelle Außentemperatur |
-| Außentemperatur Mittel | Kurzzeit-Mittelwert |
-| Außentemperatur Mittel Langzeit | Langzeit-Mittelwert |
-| Softwareversion | Diagnose |
+| Field | Description | Default |
+|-------|-------------|---------|
+| Host | IP address of the transfer station | – |
+| Port | Modbus TCP port | `2001` |
+| Slave ID | Modbus slave ID | `1` |
+| Scan interval | Seconds between updates | `30` |
+| Heating circuits | Active heating circuits (HC0–HC3) | HC1 |
+| Read-only | Disable write access | no |
 
-### Fernwärme
-| Entität | Beschreibung |
-|---------|-------------|
-| Vorlauf Ist | Sekundärer Vorlauf |
-| Vorlauf Soll | Berechneter Sollwert |
-| Rücklauf Ist | Sekundärer Rücklauf |
-| Rücklauf Primär | Primärseitiger Rücklauf |
-| Ventilstellung | Öffnungsgrad des Regelventils (%) |
-| Status | Betriebszustand der Übergabe |
-| Wärmemenge | Gesamte Wärmeenergie (kWh) |
-| Leistung | Aktuelle Wärmeleistung (W) |
-| Volumen | Durchgeflossenes Volumen (l) |
-
-### Heizkreis (pro aktiviertem Kreis)
-| Entität | Beschreibung |
-|---------|-------------|
-| Vorlauf Ist / Soll | Heizkreis-Vorlauftemperatur |
-| Status | Betriebszustand des Heizkreises |
-| Mischer Stellung | Position des Mischers |
-| Betriebsmodus | Einstellbar: Auto / Tagbetrieb / Nachtbetrieb / Standby |
-| Heizkurven-Sollwerte | Einstellbar: VL-Temperaturen bei +20/+5/−10 °C AT, Min/Max |
-
-### Pufferspeicher
-| Entität | Beschreibung |
-|---------|-------------|
-| Temperatur Oben / Unten | Speicherfühler |
-| Pufferpumpe Drehzahl | Aktuelle Pumpendrehzahl (%) |
-| Ein-/Ausschalttemperatur | Einstellbar |
-
-### Binärsensoren
-Pumpen (Heizkreis, Puffer, Solar) und Fehlermeldungen als `binary_sensor`.
+The connection is automatically verified when saving.
 
 ---
 
-## Energie-Dashboard
+## Entities
 
-Der Sensor **Wärmemenge** (`sensor.schneid_mr12_waermemenge`) kann im Home Assistant Energie-Dashboard unter **Gasverbrauch** eingetragen werden. Der Sensor verwendet `device_class: gas` mit der Einheit `kWh` und ist damit direkt kompatibel.
+The integration creates multiple sub-devices:
+
+### Main Device
+| Entity | Description |
+|--------|-------------|
+| Outdoor temperature | Current outdoor temperature |
+| Outdoor temperature average | Short-term average |
+| Outdoor temperature average long-term | Long-term average |
+| Software version | Diagnostics |
+
+### District Heating
+| Entity | Description |
+|--------|-------------|
+| Supply temperature actual | Secondary supply |
+| Supply temperature setpoint | Calculated setpoint |
+| Return temperature actual | Secondary return |
+| Return temperature primary | Primary-side return |
+| Valve position | Opening degree of the control valve (%) |
+| Status | Operating state of the transfer station |
+| Heat amount | Total heat energy (kWh) |
+| Power | Current heat output (W) |
+| Volume | Total flow volume (l) |
+
+### Heating Circuit (per active circuit)
+| Entity | Description |
+|--------|-------------|
+| Supply temperature actual / setpoint | Heating circuit supply temperature |
+| Status | Operating state of the heating circuit |
+| Mixer position | Position of the mixer |
+| Operating mode | Configurable: Auto / Day / Night / Standby |
+| Heating curve setpoints | Configurable: supply temperatures at +20/+5/−10 °C outdoor, Min/Max |
+
+### Buffer Storage
+| Entity | Description |
+|--------|-------------|
+| Temperature top / bottom | Storage sensors |
+| Buffer pump speed | Current pump speed (%) |
+| Switch-on / switch-off temperature | Configurable |
+
+### Binary Sensors
+Pumps (heating circuit, buffer, solar) and error messages as `binary_sensor`.
 
 ---
 
-## Nur-Lesen-Modus
+## Energy Dashboard
 
-Wenn **Nur-Lesen** aktiviert ist, werden alle `number`- und `select`-Entitäten deaktiviert. Messwerte bleiben weiterhin verfügbar. Diese Option ist empfehlenswert, wenn der MR-12 primär vom Heizungsfachbetrieb gesteuert wird.
-
----
-
-## Unterstützte Geräte
-
-Getestet mit:
-- **Schneid MR-12** Fernwärme-Übergabestation
+The **Heat amount** sensor (`sensor.schneid_mr12_waermemenge`) can be added to the Home Assistant Energy Dashboard under **Gas consumption**. The sensor uses `device_class: gas` with the unit `kWh` and is therefore directly compatible.
 
 ---
 
-## Lizenz
+## Read-Only Mode
+
+When **Read-only** is enabled, all `number` and `select` entities are disabled. Sensor readings remain available. This option is recommended when the MR-12 is primarily managed by a heating technician.
+
+---
+
+## Supported Devices
+
+Tested with:
+- **Schneid MR-12** district heating transfer station
+
+---
+
+## License
 
 MIT License

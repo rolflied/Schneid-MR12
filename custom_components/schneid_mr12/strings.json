@@ -2,41 +2,41 @@
   "config": {
     "step": {
       "user": {
-        "title": "Schneid MR-12 einrichten",
-        "description": "Verbinde dich mit der Fernwärme-Übergabestation Schneid MR-12 über Modbus TCP.",
+        "title": "Set up Schneid MR-12",
+        "description": "Connect to the Schneid MR-12 district heating transfer station via Modbus TCP.",
         "data": {
-          "host": "IP-Adresse",
-          "port": "Port (Standard: 502)",
-          "slave_id": "Modbus Slave-ID (Standard: 1)",
-          "scan_interval": "Abfrageintervall (Sekunden)",
-          "heating_circuits": "Aktive Heizkreise",
-          "read_only": "Nur-Lese-Modus (keine Schreibzugriffe)"
+          "host": "IP address",
+          "port": "Port (default: 502)",
+          "slave_id": "Modbus slave ID (default: 1)",
+          "scan_interval": "Scan interval (seconds)",
+          "heating_circuits": "Active heating circuits",
+          "read_only": "Read-only mode (no write access)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Verbindung fehlgeschlagen – bitte IP-Adresse und Port prüfen."
+      "cannot_connect": "Connection failed – please check the IP address and port."
     },
     "abort": {
-      "already_configured": "Dieses Gerät ist bereits konfiguriert."
+      "already_configured": "This device is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Schneid MR-12 Einstellungen",
+        "title": "Schneid MR-12 Settings",
         "data": {
-          "host": "IP-Adresse",
+          "host": "IP address",
           "port": "Port",
-          "slave_id": "Modbus Slave-ID",
-          "scan_interval": "Abfrageintervall (Sekunden)",
-          "heating_circuits": "Aktive Heizkreise",
-          "read_only": "Nur-Lese-Modus (keine Schreibzugriffe)"
+          "slave_id": "Modbus slave ID",
+          "scan_interval": "Scan interval (seconds)",
+          "heating_circuits": "Active heating circuits",
+          "read_only": "Read-only mode (no write access)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Verbindung fehlgeschlagen – bitte IP-Adresse und Port prüfen."
+      "cannot_connect": "Connection failed – please check the IP address and port."
     }
   }
 }

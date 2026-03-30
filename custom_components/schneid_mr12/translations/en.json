@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Schneid MR-12",
+        "description": "Connect to the Schneid MR-12 district heating transfer station via Modbus TCP.\n\nDefault port: 502 | Default slave ID: 1",
+        "data": {
+          "host": "IP address",
+          "port": "TCP port",
+          "slave_id": "Modbus slave ID",
+          "scan_interval": "Scan interval (seconds)",
+          "heating_circuits": "Active heating circuits",
+          "read_only": "Read-only mode (no write access)"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the transfer station on the network.",
+          "port": "Modbus TCP port (default: 502).",
+          "slave_id": "Modbus slave address of the controller (default: 1, configurable on the controller).",
+          "scan_interval": "How often the controller should be polled (5–3600 seconds).",
+          "heating_circuits": "Select which heating circuits should be visible in Home Assistant.",
+          "read_only": "In read-only mode, no writable entities (Number, Select) are created."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Connection failed. Please check the IP address, port, and network connection."
+    },
+    "abort": {
+      "already_configured": "This transfer station is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Schneid MR-12 – Connection Settings",
+        "description": "Change the connection parameters or scan interval.",
+        "data": {
+          "host": "IP address",
+          "port": "TCP port",
+          "slave_id": "Modbus slave ID",
+          "scan_interval": "Scan interval (seconds)",
+          "heating_circuits": "Active heating circuits",
+          "read_only": "Read-only mode (no write access)"
+        },
+        "data_description": {
+          "heating_circuits": "Select which heating circuits should be visible in Home Assistant.",
+          "read_only": "In read-only mode, no Number, Select, or other writable entities are created."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Connection failed. Please check the IP address and port."
+    }
+  }
+}
