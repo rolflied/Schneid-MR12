@@ -14,11 +14,23 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_READ_ONLY, DEFAULT_READ_ONLY, DOMAIN
+from .const import (
+    CONF_HEATING_CIRCUITS,
+    CONF_READ_ONLY,
+    DEFAULT_HEATING_CIRCUITS,
+    DEFAULT_READ_ONLY,
+    DOMAIN,
+)
 from .coordinator import SchneidModbusCoordinator
-from .entity import SchneidBaseEntity, device_info_hk, device_info_puffer
+from .entity import (
+    SchneidBaseEntity,
+    device_info_hk,
+    device_info_main,
+    device_info_puffer,
+)
 
 
 @dataclass(frozen=True)
@@ -28,8 +40,9 @@ class SchneidNumberDescription(NumberEntityDescription):
     data_key: str = ""
     register: int = 0
     write_scale: int = 1
-    # "puffer" → Pufferspeicher-Gerät, "hk1" → Heizkreis 1
+    # "puffer" → Pufferspeicher, "hk1" → Heizkreis 1, "main" → Hauptgerät
     device_group: str = "puffer"
+    entity_category: EntityCategory | None = None
 
 
 NUMBER_DESCRIPTIONS_PUFFER: tuple[SchneidNumberDescription, ...] = (
@@ -42,7 +55,9 @@ NUMBER_DESCRIPTIONS_PUFFER: tuple[SchneidNumberDescription, ...] = (
         register=40704,
         native_min_value=20,
         native_max_value=80,
-        native_step=1,
+        native_step=0.1,
+        # Register wird in 0,1 °C geführt (Lesen ÷10), also ×10 schreiben.
+        write_scale=10,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=NumberDeviceClass.TEMPERATURE,
         icon="mdi:thermometer-plus",
@@ -56,7 +71,9 @@ NUMBER_DESCRIPTIONS_PUFFER: tuple[SchneidNumberDescription, ...] = (
         register=40705,
         native_min_value=20,
         native_max_value=80,
-        native_step=1,
+        native_step=0.1,
+        # Register wird in 0,1 °C geführt (Lesen ÷10), also ×10 schreiben.
+        write_scale=10,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=NumberDeviceClass.TEMPERATURE,
         icon="mdi:thermometer-minus",
@@ -140,6 +157,104 @@ NUMBER_DESCRIPTIONS_HK1: tuple[SchneidNumberDescription, ...] = (
     ),
 )
 
+NUMBER_DESCRIPTIONS_MAIN: tuple[SchneidNumberDescription, ...] = (
+
+    # ── Stations-/Systemparameter (Hauptgerät) ────────────────────────────────
+    SchneidNumberDescription(
+        key="offset_aussentemp",
+        data_key="offset_aussentemp",
+        name="Offset Außentemperatur",
+        register=40012,
+        native_min_value=-5,
+        native_max_value=5,
+        native_step=0.1,
+        write_scale=10,  # Register in 0,1 °C
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        # Temperaturdifferenz: kein device_class TEMPERATURE, sonst rechnet HA
+        # bei °F-Nutzern 0 °C Differenz in 32 °F um.
+        icon="mdi:thermometer-alert",
+        mode=NumberMode.BOX,
+        device_group="main",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    SchneidNumberDescription(
+        key="vl_bei_frost",
+        data_key="vl_bei_frost",
+        name="Vorlauftemperatur bei Frost",
+        register=40028,
+        native_min_value=10,
+        native_max_value=60,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
+        icon="mdi:snowflake-thermometer",
+        mode=NumberMode.BOX,
+        device_group="main",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    SchneidNumberDescription(
+        key="frost_aussentemp",
+        data_key="frost_aussentemp",
+        name="Frostschutz Außentemperatur",
+        register=40029,
+        native_min_value=-20,
+        native_max_value=20,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
+        icon="mdi:snowflake-alert",
+        mode=NumberMode.BOX,
+        device_group="main",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    SchneidNumberDescription(
+        key="stationserhoehung",
+        data_key="stationserhöhung",
+        name="Stationserhöhung",
+        register=40049,
+        native_min_value=0,
+        native_max_value=30,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        # Temperaturdifferenz: kein device_class TEMPERATURE, sonst rechnet HA
+        # bei °F-Nutzern 0 °C Differenz in 32 °F um.
+        icon="mdi:thermometer-chevron-up",
+        mode=NumberMode.BOX,
+        device_group="main",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    SchneidNumberDescription(
+        key="volle_nachtabsenkung",
+        data_key="volle_nachtabsenkung",
+        name="Volle Nachtabsenkung ab",
+        register=40023,
+        native_min_value=-20,
+        native_max_value=20,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
+        icon="mdi:weather-night",
+        mode=NumberMode.BOX,
+        device_group="main",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    SchneidNumberDescription(
+        key="keine_nachtabsenkung",
+        data_key="keine_nachtabsenkung",
+        name="Keine Nachtabsenkung ab",
+        register=40024,
+        native_min_value=-20,
+        native_max_value=20,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
+        icon="mdi:weather-night-partly-cloudy",
+        mode=NumberMode.BOX,
+        device_group="main",
+        entity_category=EntityCategory.CONFIG,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -152,12 +267,19 @@ async def async_setup_entry(
 
     coordinator: SchneidModbusCoordinator = hass.data[DOMAIN][entry.entry_id]
     eid = entry.entry_id
+    enabled_hks = {
+        int(h) for h in config.get(CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS)
+    }
 
     entities: list[NumberEntity] = []
+    for desc in NUMBER_DESCRIPTIONS_MAIN:
+        entities.append(SchneidNumber(coordinator, eid, desc, device_info_main(eid)))
     for desc in NUMBER_DESCRIPTIONS_PUFFER:
         entities.append(SchneidNumber(coordinator, eid, desc, device_info_puffer(eid)))
-    for desc in NUMBER_DESCRIPTIONS_HK1:
-        entities.append(SchneidNumber(coordinator, eid, desc, device_info_hk(eid, 1)))
+    # Heizkurven-Sollwerte nur anlegen, wenn Heizkreis 1 auch aktiviert ist.
+    if 1 in enabled_hks:
+        for desc in NUMBER_DESCRIPTIONS_HK1:
+            entities.append(SchneidNumber(coordinator, eid, desc, device_info_hk(eid, 1)))
     async_add_entities(entities)
 
 
@@ -175,6 +297,8 @@ class SchneidNumber(SchneidBaseEntity, NumberEntity):
     ) -> None:
         super().__init__(coordinator, entry_id, description.key, device_info)
         self.entity_description = description
+        if description.entity_category is not None:
+            self._attr_entity_category = description.entity_category
 
     @property
     def native_value(self) -> float | None:
@@ -189,9 +313,11 @@ class SchneidNumber(SchneidBaseEntity, NumberEntity):
         if raw_value < 0:
             raw_value = raw_value & 0xFFFF
 
-        success = await self.coordinator.async_write_register(
+        # Wirft HomeAssistantError, wenn das Gerät den Schreibvorgang ablehnt.
+        await self.coordinator.async_write_register(
             self.entity_description.register, raw_value
         )
-        if success:
-            self.coordinator.data[self.entity_description.data_key] = value
-            self.async_write_ha_state()
+        # Kein optimistisches Setzen des Caches: erst nach einer echten Rücklesung
+        # den Wert übernehmen, damit die Oberfläche den tatsächlichen Gerätewert
+        # zeigt und keinen Erfolg vortäuscht, der vom Gerät nicht übernommen wurde.
+        await self.coordinator.async_request_refresh()

@@ -11,13 +11,18 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    AUSHEIZPROGRAMM_OPTIONS,
+    BETRIEBSMODUS_HK_OPTIONS,
+    CONF_HEATING_CIRCUITS,
     CONF_READ_ONLY,
+    DEFAULT_HEATING_CIRCUITS,
     DEFAULT_READ_ONLY,
     DOMAIN,
     FUNKTION_WUEST_OPTIONS,
+    HANDBETRIEB_VENTIL_OPTIONS,
 )
 from .coordinator import SchneidModbusCoordinator
-from .entity import SchneidBaseEntity, device_info_main
+from .entity import SchneidBaseEntity, device_info_fw, device_info_hk, device_info_main
 
 
 @dataclass(frozen=True)
@@ -44,7 +49,47 @@ SELECT_DESC_MAIN: tuple[SchneidSelectDescription, ...] = (
         options_map=FUNKTION_WUEST_OPTIONS,
         icon="mdi:tune",
     ),
+    SchneidSelectDescription(
+        key="ausheizprogramm",
+        data_key="ausheizprogramm",
+        name="Ausheizprogramm",
+        register=40030,
+        options_map=AUSHEIZPROGRAMM_OPTIONS,
+        icon="mdi:fire",
+        # Startet ein mehrtägiges Programm – nur bewusst aktivieren.
+        entity_registry_enabled_default=False,
+    ),
 )
+
+# ─── Fernwärme-Selects ────────────────────────────────────────────────────────
+
+SELECT_DESC_FW: tuple[SchneidSelectDescription, ...] = (
+    SchneidSelectDescription(
+        key="handbetrieb_ventil",
+        data_key="handbetrieb_ventil",
+        name="Handbetrieb Primärventil",
+        register=40050,
+        options_map=HANDBETRIEB_VENTIL_OPTIONS,
+        icon="mdi:valve",
+        # Öffnet/schließt das Primärventil manuell – nur bewusst aktivieren.
+        entity_registry_enabled_default=False,
+    ),
+)
+
+
+# ─── Heizkreis-Selects (pro Kreis) ───────────────────────────────────────────
+
+def _hk_selects(hk_idx: int) -> tuple[SchneidSelectDescription, ...]:
+    return (
+        SchneidSelectDescription(
+            key=f"betriebsmodus_hk{hk_idx}",
+            data_key=f"betriebsmodus_hk{hk_idx}",
+            name="Betriebsmodus",
+            register=40240 + hk_idx,
+            options_map=BETRIEBSMODUS_HK_OPTIONS,
+            icon="mdi:tune-variant",
+        ),
+    )
 
 
 # ─── Platform-Setup ──────────────────────────────────────────────────────────
@@ -60,11 +105,22 @@ async def async_setup_entry(
 
     coordinator: SchneidModbusCoordinator = hass.data[DOMAIN][entry.entry_id]
     eid = entry.entry_id
+    enabled_hks = {
+        int(h) for h in config.get(CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS)
+    }
 
-    async_add_entities(
-        SchneidSelect(coordinator, eid, desc, device_info_main(eid))
-        for desc in SELECT_DESC_MAIN
-    )
+    entities: list[SchneidSelect] = []
+    for desc in SELECT_DESC_MAIN:
+        entities.append(SchneidSelect(coordinator, eid, desc, device_info_main(eid)))
+    for desc in SELECT_DESC_FW:
+        entities.append(SchneidSelect(coordinator, eid, desc, device_info_fw(eid)))
+    for hk_idx in range(4):
+        if hk_idx not in enabled_hks:
+            continue
+        di_hk = device_info_hk(eid, hk_idx)
+        for desc in _hk_selects(hk_idx):
+            entities.append(SchneidSelect(coordinator, eid, desc, di_hk))
+    async_add_entities(entities)
 
 
 class SchneidSelect(SchneidBaseEntity, SelectEntity):
@@ -118,9 +174,9 @@ class SchneidSelect(SchneidBaseEntity, SelectEntity):
         if value is None:
             return
 
-        success = await self.coordinator.async_write_register(
+        # Wirft HomeAssistantError, wenn das Gerät den Schreibvorgang ablehnt.
+        await self.coordinator.async_write_register(
             self.entity_description.register, value
         )
-        if success:
-            self.coordinator.data[self.entity_description.data_key] = value
-            self.async_write_ha_state()
+        # Kein optimistisches Setzen des Caches: echter Gerätewert per Rücklesung.
+        await self.coordinator.async_request_refresh()

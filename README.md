@@ -14,10 +14,10 @@ This integration reads temperatures, operating states, pumps, and the internal h
 
 ## Prerequisites
 
-- Home Assistant 2024.1 or newer
-- Schneid MR-12 with Modbus TCP interface enabled
-- Network access from Home Assistant to the transfer station (default port: 2001)
-- `pymodbus` ≥ 3.5.0, < 4.0.0 (managed automatically by HA)
+- Home Assistant 2024.12 or newer
+- Schneid MR-12 with Modbus TCP interface (e.g. via a CM-12 communication module)
+- Network access from Home Assistant to the transfer station (default Modbus TCP port: 502)
+- `pymodbus` ≥ 3.5.0, < 4.0.0 (installed automatically by HA via the integration's manifest)
 
 ---
 
@@ -45,7 +45,7 @@ This integration reads temperatures, operating states, pumps, and the internal h
 | Field | Description | Default |
 |-------|-------------|---------|
 | Host | IP address of the transfer station | – |
-| Port | Modbus TCP port | `2001` |
+| Port | Modbus TCP port | `502` |
 | Slave ID | Modbus slave ID | `1` |
 | Scan interval | Seconds between updates | `30` |
 | Heating circuits | Active heating circuits (HC0–HC3) | HC1 |
@@ -96,8 +96,21 @@ The integration creates multiple sub-devices:
 | Buffer pump speed | Current pump speed (%) |
 | Switch-on / switch-off temperature | Configurable |
 
+### Writable Parameters (when read-only mode is off)
+| Entity | Description |
+|--------|-------------|
+| Operating mode (station) | WÜST function of the whole transfer station |
+| Operating mode (per heating circuit) | Mode of each active heating circuit |
+| Heating program | Screed/heat-up program |
+| Manual primary valve | Manual control of the primary valve |
+| Buffer switch-on / switch-off temperature | Buffer pump thresholds |
+| Heating curve setpoints (HC1) | Supply temperatures at +20/+5/−10 °C, Min/Max |
+| System parameters | Outdoor offset, frost protection, night setback, station boost |
+
 ### Binary Sensors
-Pumps (heating circuit, buffer, solar) and error messages as `binary_sensor`.
+Pumps (heating circuit, buffer) and the power-limitation state as `binary_sensor`.
+
+> **Note:** Which entities actually show data depends on your installation. Sensors for circuits, boilers or meters that are not present report *unavailable*.
 
 ---
 
@@ -110,6 +123,29 @@ The **Heat amount** sensor (`sensor.schneid_mr12_waermemenge`) can be added to t
 ## Read-Only Mode
 
 When **Read-only** is enabled, all `number` and `select` entities are disabled. Sensor readings remain available. This option is recommended when the MR-12 is primarily managed by a heating technician.
+
+### Disabled by default
+
+Some entities are created but disabled, because they either act directly on the plant or only make sense with additional hardware. Enable them under **Settings → Devices & Services → Entities** if you need them:
+
+- **Heating program** (screed program, runs for several days)
+- **Manual primary valve** (opens/closes the primary valve manually)
+- **Heat amount / Power / Volume** of the internal heat meter (report 0 without a connected meter)
+
+## Checking whether writes are applied
+
+The CM-12 first stores a written value in its own register mirror and then forwards it to the MR-12 controller. An immediate read-back therefore only shows the mirror. The integration checks every write again on the first poll at least 60 seconds later and logs the result:
+
+- `INFO … vom Regler übernommen` – the controller kept the value.
+- `WARNING … nicht übernommen` – the value was reset; the controller did not accept the Modbus write for this register.
+
+To see the confirmation messages, enable info logging:
+
+```yaml
+logger:
+  logs:
+    custom_components.schneid_mr12: info
+```
 
 ---
 

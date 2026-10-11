@@ -78,10 +78,12 @@ REG_HYDRAULIKVARIANTE   = 712   # Hydraulikvariante
 REG_ZIRKULATIONSPUMPE1  = 714   # Zirkulationspumpe 1
 REG_ZIRKULATIONSPUMPE2  = 715   # Zirkulationspumpe 2
 REG_UHRZEIT             = 716   # Uhrzeit Regler hhmm
-REG_TAG                 = 717   # Tag Regler
-REG_MONAT               = 718   # Monat Regler
-REG_WOCHENTAG           = 719   # Wochentag Regler
-REG_JAHR                = 720   # Jahr Regler
+# Reihenfolge am Gerät bestätigt (Parametertabelle CM12 vom 11.10.2026:
+# 716=1056, 717=7, 718=11, 719=10, 720=26 → So, 11.10.26, 10:56 Uhr)
+REG_WOCHENTAG           = 717   # Wochentag Regler (1=Mo … 7=So)
+REG_TAG                 = 718   # Tag Regler
+REG_MONAT               = 719   # Monat Regler
+REG_JAHR                = 720   # Jahr Regler (zweistellig)
 REG_STATUS_PUMPE_LM1    = 721   # Status Pumpe Lademodul 1
 REG_STATUS_MISCHER_LM1  = 722   # Status Mischer Lademodul 1
 REG_STATUS_PUMPE_LM2    = 723   # Status Pumpe Lademodul 2
