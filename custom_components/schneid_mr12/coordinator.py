@@ -18,6 +18,11 @@ _LOGGER = logging.getLogger(__name__)
 
 # Sentinel-Werte des MR-12: zeigen an, dass ein Sensor/eine Funktion nicht verfügbar ist
 _SENTINEL = frozenset({32766, 65534, 126})  # 0x7FFE, 0xFFFE, 0x007E
+# Für Temperaturen gilt 126 (0x007E) NICHT als Sentinel: 126 entspricht 12,6 °C
+# und ist ein völlig normaler Messwert. Das Gerät markiert fehlende Fühler mit
+# 0x7FFE bzw. 0xFFFE; 0x007E tritt nur in Status-/Belegungsslots als „nicht
+# vorhanden“ auf.
+_SENTINEL_TEMP = frozenset({32766, 65534})  # 0x7FFE, 0xFFFE
 
 
 def _u16_to_signed(value: int) -> int:
@@ -42,14 +47,14 @@ def _read32s(regs: list[int], hi_index: int) -> int:
 
 def _temp(val: int) -> float | None:
     """Gibt x,x°C zurück oder None bei Sentinel."""
-    if val in _SENTINEL:
+    if val in _SENTINEL_TEMP:
         return None
     return _u16_to_signed(val) / 10
 
 
 def _temp100(val: int) -> float | None:
     """Gibt x,xx°C zurück oder None bei Sentinel."""
-    if val in _SENTINEL:
+    if val in _SENTINEL_TEMP:
         return None
     return _u16_to_signed(val) / 100
 
@@ -249,8 +254,8 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             regs = r.registers
             # Index = Registeradresse - 12
             if regs[0] not in _SENTINEL: data["offset_aussentemp"]    = _u16_to_signed(regs[0]) / 10   # 40012
-            if regs[11] not in _SENTINEL: data["volle_nachtabsenkung"] = regs[11]                       # 40023
-            if regs[12] not in _SENTINEL: data["keine_nachtabsenkung"] = regs[12]                       # 40024
+            if regs[11] not in _SENTINEL: data["volle_nachtabsenkung"] = _u16_to_signed(regs[11])        # 40023 (Außentemp, kann negativ sein)
+            if regs[12] not in _SENTINEL: data["keine_nachtabsenkung"] = _u16_to_signed(regs[12])        # 40024 (Außentemp, kann negativ sein)
             if regs[16] not in _SENTINEL: data["vl_bei_frost"]         = regs[16]                       # 40028
             if regs[17] not in _SENTINEL: data["frost_aussentemp"]     = _u16_to_signed(regs[17])       # 40029
             if regs[18] not in _SENTINEL: data["ausheizprogramm"]      = regs[18]                       # 40030

@@ -12,7 +12,7 @@ def device_info_main(entry_id: str) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, entry_id)},
         name="Schneid MR-12",
-        manufacturer="Dagobert Duck",
+        manufacturer="Schneid",
         model="MR-12",
     )
 
@@ -22,7 +22,7 @@ def device_info_fw(entry_id: str) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_fw")},
         name="Fernwärme",
-        manufacturer="Dagobert Duck",
+        manufacturer="Schneid",
         model="MR-12",
         via_device=(DOMAIN, entry_id),
     )
@@ -33,7 +33,7 @@ def device_info_hk(entry_id: str, hk_idx: int) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_hk{hk_idx}")},
         name=f"Heizkreis {hk_idx}",
-        manufacturer="Dagobert Duck",
+        manufacturer="Schneid",
         model="MR-12",
         via_device=(DOMAIN, entry_id),
     )
@@ -44,7 +44,7 @@ def device_info_puffer(entry_id: str) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_puffer")},
         name="Pufferspeicher",
-        manufacturer="Dagobert Duck",
+        manufacturer="Schneid",
         model="MR-12",
         via_device=(DOMAIN, entry_id),
     )

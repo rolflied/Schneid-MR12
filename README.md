@@ -15,9 +15,9 @@ This integration reads temperatures, operating states, pumps, and the internal h
 ## Prerequisites
 
 - Home Assistant 2024.1 or newer
-- Schneid MR-12 with Modbus TCP interface enabled
-- Network access from Home Assistant to the transfer station (default port: 2001)
-- `pymodbus` ≥ 3.5.0, < 4.0.0 (managed automatically by HA)
+- Schneid MR-12 with Modbus TCP interface (e.g. via a CM-12 communication module)
+- Network access from Home Assistant to the transfer station (default Modbus TCP port: 502)
+- `pymodbus` ≥ 3.5.0, < 4.0.0 (installed automatically by HA via the integration's manifest)
 
 ---
 
@@ -45,7 +45,7 @@ This integration reads temperatures, operating states, pumps, and the internal h
 | Field | Description | Default |
 |-------|-------------|---------|
 | Host | IP address of the transfer station | – |
-| Port | Modbus TCP port | `2001` |
+| Port | Modbus TCP port | `502` |
 | Slave ID | Modbus slave ID | `1` |
 | Scan interval | Seconds between updates | `30` |
 | Heating circuits | Active heating circuits (HC0–HC3) | HC1 |
@@ -96,8 +96,21 @@ The integration creates multiple sub-devices:
 | Buffer pump speed | Current pump speed (%) |
 | Switch-on / switch-off temperature | Configurable |
 
+### Writable Parameters (when read-only mode is off)
+| Entity | Description |
+|--------|-------------|
+| Operating mode (station) | WÜST function of the whole transfer station |
+| Operating mode (per heating circuit) | Mode of each active heating circuit |
+| Heating program | Screed/heat-up program |
+| Manual primary valve | Manual control of the primary valve |
+| Buffer switch-on / switch-off temperature | Buffer pump thresholds |
+| Heating curve setpoints (HC1) | Supply temperatures at +20/+5/−10 °C, Min/Max |
+| System parameters | Outdoor offset, frost protection, night setback, station boost |
+
 ### Binary Sensors
-Pumps (heating circuit, buffer, solar) and error messages as `binary_sensor`.
+Pumps (heating circuit, buffer) and the power-limitation state as `binary_sensor`.
+
+> **Note:** Which entities actually show data depends on your installation. Sensors for circuits, boilers or meters that are not present report *unavailable*.
 
 ---
 
