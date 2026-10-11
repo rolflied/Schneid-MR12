@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an der Integration. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.3.1] – unveröffentlicht
+
+### Behoben
+- **Puffer-Ein-/Ausschalttemperatur sind nicht mehr als Eingabefeld
+  einstellbar.** 40704/40705 liegen im Block der Ist-/Anzeigewerte und sind
+  laut Registerdoku nicht beschreibbar. Das CM-12 quittiert den Schreibbefehl,
+  der Regler setzt den Wert aber wieder zurück (an der Anlage bestätigt: 46,0 °C
+  geschrieben, nach 195 s wieder 48,0 °C). Die Werte bleiben als Sensoren
+  sichtbar; die alten Number-Entitäten werden beim Start automatisch entfernt.
+
 ## [0.3.0] – 2026-10-11
 
 Schwerpunkt: Schreibzugriffe über das CM-12 zuverlässig und nachvollziehbar
@@ -78,6 +88,7 @@ machen, Entitäten anhand eines vollständigen Registerabzugs der Anlage
   Binärsensoren, schreibbaren Sollwerten und Betriebsmodus, Unterteilung in
   Geräte (Station, Fernwärme, Pufferspeicher, Heizkreise), Nur-Lese-Modus.
 
+[0.3.1]: https://github.com/rolflied/Schneid-MR12/compare/v0.3.0...master
 [0.3.0]: https://github.com/rolflied/Schneid-MR12/compare/7c92a3c...ccr-32dc38b4-9q7lxn
 [0.2.0]: https://github.com/rolflied/Schneid-MR12/compare/6880ec6...7c92a3c
 [0.1.0]: https://github.com/rolflied/Schneid-MR12/commit/6880ec6

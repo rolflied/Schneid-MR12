@@ -1,7 +1,7 @@
 {
   "domain": "schneid_mr12",
   "name": "Schneid MR-12 District Heating",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "config_flow": true,
   "documentation": "https://github.com/rolflied/Schneid-MR12",
   "integration_type": "device",

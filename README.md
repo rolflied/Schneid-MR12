@@ -94,7 +94,7 @@ The integration creates multiple sub-devices:
 |--------|-------------|
 | Temperature top / bottom | Storage sensors |
 | Buffer pump speed | Current pump speed (%) |
-| Switch-on / switch-off temperature | Configurable |
+| Switch-on / switch-off temperature | Read-only (not writable via Modbus) |
 
 ### Writable Parameters (when read-only mode is off)
 | Entity | Description |
@@ -103,7 +103,6 @@ The integration creates multiple sub-devices:
 | Operating mode (per heating circuit) | Mode of each active heating circuit |
 | Heating program | Screed/heat-up program |
 | Manual primary valve | Manual control of the primary valve |
-| Buffer switch-on / switch-off temperature | Buffer pump thresholds |
 | Heating curve setpoints (HC1) | Supply temperatures at +20/+5/−10 °C, Min/Max |
 | System parameters | Outdoor offset, frost protection, night setback, station boost |
 
