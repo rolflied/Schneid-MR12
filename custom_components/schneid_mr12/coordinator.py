@@ -8,6 +8,7 @@ und wird geteilt, falls weitere Integrationen dasselbe Gerät abfragen.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass
@@ -16,8 +17,10 @@ from typing import Any
 
 from modbus_connection import (
     IllegalFunctionError,
+    ModbusConnectionError,
     ModbusError,
     ModbusExceptionError,
+    ModbusProtocolError,
     ModbusTimeoutError,
     ModbusUnit,
 )
@@ -37,6 +40,11 @@ _LOGGER = logging.getLogger(__name__)
 # reicht die Änderung erst danach über RS485 an den Regler weiter; eine sofortige
 # Rücklesung sieht deshalb nur den Spiegel.
 WRITE_VERIFY_DELAY = 60  # Sekunden
+
+# Obergrenze für einen kompletten Abfragezyklus (7 Blöcke). Jede einzelne Anfrage
+# hat zusätzlich das Timeout der Verbindung (10 s); diese Grenze fängt alles ab,
+# was trotzdem hängen bleibt, damit der Coordinator nie stumm stehen bleibt.
+UPDATE_TIMEOUT = 60  # Sekunden
 
 
 @dataclass
@@ -138,6 +146,8 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=scan_interval),
         )
         self.unit = unit
+        # Geräte-ID des Hauptgeräts, gesetzt in async_setup_entry
+        self.main_device_id: str = ""
         # Noch zu prüfende Schreibvorgänge, nach Modbus-Adresse
         self._pending_writes: dict[int, _PendingWrite] = {}
 
@@ -156,13 +166,30 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            data = await self._read_all()
-            await self._verify_pending_writes()
+            async with asyncio.timeout(UPDATE_TIMEOUT):
+                data = await self._read_all()
+                await self._verify_pending_writes()
+        except TimeoutError as err:
+            # Deckt ModbusTimeoutError und die Gesamt-Zeitgrenze ab. Eine
+            # Verbindung, die nicht mehr antwortet, aber offen ist (halb offener
+            # Socket), wird verworfen und beim nächsten Abruf neu aufgebaut.
+            await self._recycle_connection()
+            raise UpdateFailed(f"Keine Antwort vom Gerät: {err}") from err
+        except (ModbusConnectionError, ModbusProtocolError) as err:
+            await self._recycle_connection()
+            raise UpdateFailed(f"Modbus-Fehler: {err}") from err
         except ModbusError as err:
             raise UpdateFailed(f"Modbus-Fehler: {err}") from err
         if not data:
             raise UpdateFailed("Das Gerät hat keinen der Registerblöcke beantwortet")
         return data
+
+    async def _recycle_connection(self) -> None:
+        """Verwirft die Verbindung; die nächste Anfrage baut sie neu auf."""
+        try:
+            await self.unit.disconnect()
+        except ModbusError as err:
+            _LOGGER.debug("Fehler beim Trennen der Verbindung: %s", err)
 
     async def _verify_pending_writes(self) -> None:
         """Prüft fällige Schreibvorgänge gegen den aktuellen Gerätewert.

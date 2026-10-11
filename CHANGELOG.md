@@ -4,6 +4,22 @@ Alle nennenswerten Änderungen an der Integration. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.4.1] – unveröffentlicht
+
+### Behoben
+- **Werte konnten nach dem Start einfrieren, ohne dass etwas im Log stand.**
+  Ein Abfragezyklus hat jetzt eine Obergrenze von 60 s. Bei Timeout oder
+  gestörter Verbindung wird die Verbindung verworfen und beim nächsten Abruf
+  neu aufgebaut. Vorher blieb eine halb offene Verbindung (Gerät antwortet
+  nicht, trennt aber auch nicht) dauerhaft hängen.
+- Warnung „deprecated `via_device` parameter“ (HA 2026.10, Abschaltung in
+  2027.8): Das Hauptgerät wird jetzt vorab registriert, Fernwärme, Puffer und
+  Heizkreise verweisen per `via_device_id` darauf.
+- Warnung „kWh is not a valid unit for the device class gas“: Seit HA 2026.10
+  akzeptiert `gas` nur Volumeneinheiten. Die Wärmemenge ist jetzt `energy`
+  (kWh). Auf der Wärmemenge aufbauende Helfer wie Verbrauchszähler übernehmen
+  die neue Geräteklasse.
+
 ## [0.4.0] – unveröffentlicht
 
 Schwerpunkt: Umstellung auf die geteilte Modbus-Verbindung von Home Assistant
@@ -112,7 +128,8 @@ machen, Entitäten anhand eines vollständigen Registerabzugs der Anlage
   Binärsensoren, schreibbaren Sollwerten und Betriebsmodus, Unterteilung in
   Geräte (Station, Fernwärme, Pufferspeicher, Heizkreise), Nur-Lese-Modus.
 
-[0.4.0]: https://github.com/rolflied/Schneid-MR12/compare/v0.3.0...master
+[0.4.1]: https://github.com/rolflied/Schneid-MR12/compare/v0.4.0...master
+[0.4.0]: https://github.com/rolflied/Schneid-MR12/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rolflied/Schneid-MR12/compare/7c92a3c...ccr-32dc38b4-9q7lxn
 [0.2.0]: https://github.com/rolflied/Schneid-MR12/compare/6880ec6...7c92a3c
 [0.1.0]: https://github.com/rolflied/Schneid-MR12/commit/6880ec6

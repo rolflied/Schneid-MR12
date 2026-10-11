@@ -100,18 +100,18 @@ async def async_setup_entry(
 
     entities: list[BinarySensorEntity] = []
 
-    di_fw = device_info_fw(eid)
+    di_fw = device_info_fw(eid, coordinator.main_device_id)
     for desc in BINARY_DESC_FW:
         entities.append(SchneidBinarySensor(coordinator, eid, desc, di_fw))
 
-    di_puffer = device_info_puffer(eid)
+    di_puffer = device_info_puffer(eid, coordinator.main_device_id)
     for desc in BINARY_DESC_PUFFER:
         entities.append(SchneidBinarySensor(coordinator, eid, desc, di_puffer))
 
     for hk_idx in range(4):
         if hk_idx not in enabled_hks:
             continue
-        di_hk = device_info_hk(eid, hk_idx)
+        di_hk = device_info_hk(eid, hk_idx, coordinator.main_device_id)
         for desc in _hk_binary(hk_idx):
             entities.append(SchneidBinarySensor(coordinator, eid, desc, di_hk))
 
