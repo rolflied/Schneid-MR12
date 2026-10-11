@@ -14,10 +14,9 @@ This integration reads temperatures, operating states, pumps, and the internal h
 
 ## Prerequisites
 
-- Home Assistant 2024.12 or newer
+- Home Assistant 2026.10 or newer (uses the shared Modbus connection of the built-in Modbus integration)
 - Schneid MR-12 with Modbus TCP interface (e.g. via a CM-12 communication module)
 - Network access from Home Assistant to the transfer station (default Modbus TCP port: 502)
-- `pymodbus` ≥ 3.5.0, < 4.0.0 (installed automatically by HA via the integration's manifest)
 
 ---
 
@@ -94,7 +93,7 @@ The integration creates multiple sub-devices:
 |--------|-------------|
 | Temperature top / bottom | Storage sensors |
 | Buffer pump speed | Current pump speed (%) |
-| Switch-on / switch-off temperature | Configurable |
+| Switch-on / switch-off temperature | Read-only (not writable via Modbus) |
 
 ### Writable Parameters (when read-only mode is off)
 | Entity | Description |
@@ -103,7 +102,6 @@ The integration creates multiple sub-devices:
 | Operating mode (per heating circuit) | Mode of each active heating circuit |
 | Heating program | Screed/heat-up program |
 | Manual primary valve | Manual control of the primary valve |
-| Buffer switch-on / switch-off temperature | Buffer pump thresholds |
 | Heating curve setpoints (HC1) | Supply temperatures at +20/+5/−10 °C, Min/Max |
 | System parameters | Outdoor offset, frost protection, night setback, station boost |
 

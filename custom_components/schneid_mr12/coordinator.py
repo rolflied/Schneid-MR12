@@ -1,15 +1,28 @@
-"""DataUpdateCoordinator für Schneid MR-12 über Modbus TCP."""
+"""DataUpdateCoordinator für Schneid MR-12 über Modbus TCP.
 
-import asyncio
+Die Verbindung kommt aus der Modbus-Integration von Home Assistant
+(``homeassistant.components.modbus.async_get_unit``, seit HA 2026.9). Sie baut
+die Verbindung bei Bedarf selbst auf, serialisiert alle Anfragen auf dem Gerät
+und wird geteilt, falls weitere Integrationen dasselbe Gerät abfragen.
+"""
+
+from __future__ import annotations
+
 import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from pymodbus.client import AsyncModbusTcpClient
-from pymodbus.exceptions import ModbusException
+from modbus_connection import (
+    IllegalFunctionError,
+    ModbusError,
+    ModbusExceptionError,
+    ModbusTimeoutError,
+    ModbusUnit,
+)
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -102,102 +115,56 @@ def _regler_zeit(data: dict[str, Any]) -> datetime | None:
         return None
 
 
+type SchneidConfigEntry = ConfigEntry[SchneidModbusCoordinator]
+
+
 class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Koordinator für alle Modbus-Lesevorgänge."""
+    """Koordinator für alle Modbus-Lese- und Schreibvorgänge."""
+
+    config_entry: SchneidConfigEntry
 
     def __init__(
         self,
         hass: HomeAssistant,
-        host: str,
-        port: int,
-        slave_id: int,
+        entry: SchneidConfigEntry,
+        unit: ModbusUnit,
         scan_interval: int,
     ) -> None:
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
+            config_entry=entry,
             update_interval=timedelta(seconds=scan_interval),
         )
-        self.host = host
-        self.port = port
-        self.slave_id = slave_id
-        self._client: AsyncModbusTcpClient | None = None
-        # Serialisiert Lesen und Schreiben: der pymodbus-Client darf keine zwei
-        # Anfragen gleichzeitig auf einer Verbindung haben, und viele CM12-/
-        # Modbus-Gateways verarbeiten ohnehin nur eine Anfrage pro Zeit.
-        self._io_lock = asyncio.Lock()
+        self.unit = unit
         # Noch zu prüfende Schreibvorgänge, nach Modbus-Adresse
         self._pending_writes: dict[int, _PendingWrite] = {}
 
-    async def _get_client(self) -> AsyncModbusTcpClient:
-        """Gibt einen verbundenen Client zurück – stellt bei Bedarf neu her."""
-        if self._client is None or not self._client.connected:
-            if self._client is not None:
-                self._client.close()
-            self._client = AsyncModbusTcpClient(
-                host=self.host,
-                port=self.port,
-                timeout=10,
-            )
-            if not await self._client.connect():
-                self._client = None
-                raise UpdateFailed(
-                    f"Keine Verbindung zu {self.host}:{self.port} möglich"
-                )
-        return self._client
+    async def _read_block(self, address: int, count: int) -> list[int] | None:
+        """Liest einen Registerblock.
 
-    async def _rhr(
-        self, client: AsyncModbusTcpClient, address: int, count: int
-    ):
-        """Ruft read_holding_registers versionssicher auf.
-
-        Reihenfolge der Versuche:
-        - 3.8+: device_id= (pymodbus 3.8+, count als Keyword)
-        - 3.0–3.7: slave= als Keyword
-        - 2.x: unit= als Keyword
-        - Fallback: kein Slave-Parameter
+        Antwortet das Gerät mit einer Modbus-Exception (z. B. Register auf diesem
+        Gerät nicht vorhanden), wird der Block übersprungen. Verbindungs- und
+        Timeout-Fehler werden weitergereicht und lassen das ganze Update scheitern.
         """
-        for kw in (
-            {"count": count, "device_id": self.slave_id},
-            {"count": count, "slave": self.slave_id},
-            {"count": count, "unit": self.slave_id},
-            {"count": count},
-        ):
-            try:
-                return await client.read_holding_registers(address, **kw)
-            except TypeError:
-                continue
-        # pymodbus < 3.8: address + count positional
-        for kw in (
-            {"device_id": self.slave_id},
-            {"slave": self.slave_id},
-            {"unit": self.slave_id},
-            {},
-        ):
-            try:
-                return await client.read_holding_registers(address, count, **kw)
-            except TypeError:
-                continue
-        raise UpdateFailed("Inkompatible pymodbus-Version – keine passende read_holding_registers-Signatur")
+        try:
+            return await self.unit.read_holding_registers(address, count)
+        except ModbusExceptionError as err:
+            _LOGGER.debug("Block %s+%s übersprungen: %s", address, count, err)
+            return None
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            async with self._io_lock:
-                client = await self._get_client()
-                data = await self._read_all(client)
-                await self._verify_pending_writes(client)
-                return data
-        except UpdateFailed:
-            raise
-        except ModbusException as err:
-            self._client = None
+            data = await self._read_all()
+            await self._verify_pending_writes()
+        except ModbusError as err:
             raise UpdateFailed(f"Modbus-Fehler: {err}") from err
-        except Exception as err:
-            self._client = None
-            raise UpdateFailed(f"Fehler beim Lesen: {err}") from err
+        if not data:
+            raise UpdateFailed("Das Gerät hat keinen der Registerblöcke beantwortet")
+        return data
 
-    async def _verify_pending_writes(self, client: AsyncModbusTcpClient) -> None:
+    async def _verify_pending_writes(self) -> None:
         """Prüft fällige Schreibvorgänge gegen den aktuellen Gerätewert.
 
         Läuft beim ersten Poll, der mindestens ``WRITE_VERIFY_DELAY`` Sekunden
@@ -208,11 +175,10 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for address, pending in list(self._pending_writes.items()):
             if now - pending.written_at < WRITE_VERIFY_DELAY:
                 continue
-            r = await self._rhr(client, address, 1)
-            if r.isError():
+            if (regs := await self._read_block(address, 1)) is None:
                 continue
             del self._pending_writes[address]
-            actual = r.registers[0]
+            actual = regs[0]
             if actual == pending.value:
                 _LOGGER.info(
                     "Register %s: geschriebener Wert %s ist nach %.0f s weiterhin "
@@ -229,14 +195,12 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     now - pending.written_at, actual,
                 )
 
-    async def _read_all(self, client: AsyncModbusTcpClient) -> dict[str, Any]:
+    async def _read_all(self) -> dict[str, Any]:
         """Liest alle benötigten Register-Blöcke und gibt ein Daten-Dict zurück."""
         data: dict[str, Any] = {}
 
         # ── Block 1a: Haupttemperaturen + Heizkreis 0 + 1 (40600-40629, 30 Reg.) ──
-        r = await self._rhr(client, 600, 30)
-        if not r.isError():
-            regs = r.registers
+        if (regs := await self._read_block(600, 30)) is not None:
             if (v := _temp(regs[0])) is not None: data["t6_aussentemperatur"]  = v
             if (v := _temp(regs[1])) is not None: data["t7_rl_primaer"]        = v
             if (v := _temp(regs[2])) is not None: data["t8_vl_sekundaer"]      = v
@@ -262,9 +226,7 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if (v := _status(regs[28])) is not None: data["mischer_hk1"]       = v
 
         # ── Block 1b: Heizkreis 2 + 3 (40630-40648, 19 Reg.) ─────────────────
-        r = await self._rhr(client, 630, 19)
-        if not r.isError():
-            regs = r.registers
+        if (regs := await self._read_block(630, 19)) is not None:
             # Heizkreis 2 (Index 0..8 → Adressen 630..638)
             if (v := _temp(regs[0])) is not None: data["vl_hk2"]               = v
             if (v := _temp(regs[1])) is not None: data["soll_hk2"]             = v
@@ -283,11 +245,8 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if (v := _status(regs[18])) is not None: data["mischer_hk3"]       = v
 
         # ── Block 2: Boiler + Pumpen + Diagnose (40690-40729, 40 Reg.) ────────
-        # Hinweis: 40730+ existieren auf diesem Gerät nicht (exc=4).
-        # Wärmezählerdaten (40730-40751) sind daher nicht verfügbar.
-        r = await self._rhr(client, 690, 40)
-        if not r.isError():
-            regs = r.registers
+        # Der interne Wärmezähler (40730 ff.) wird separat in Block 3b gelesen.
+        if (regs := await self._read_block(690, 40)) is not None:
             if (v := _temp(regs[0])) is not None: data["t9_speicher1_oben"]    = v
             if (v := _temp(regs[1])) is not None: data["t10_speicher1_unten"]  = v
             if (v := _temp(regs[2])) is not None: data["soll_vl_boiler1"]      = v
@@ -324,9 +283,7 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if (v := _temp(regs[39])) is not None: data["aussentemp_mittel_lz"] = v  # 40729
 
         # ── Block 3: Systemparameter + Boilersollwerte (40012-40099, 88 Reg.) ──
-        r = await self._rhr(client, 12, 88)
-        if not r.isError():
-            regs = r.registers
+        if (regs := await self._read_block(12, 88)) is not None:
             # Index = Registeradresse - 12
             if regs[0] not in _SENTINEL: data["offset_aussentemp"]    = _u16_to_signed(regs[0]) / 10   # 40012
             if regs[11] not in _SENTINEL: data["volle_nachtabsenkung"] = _u16_to_signed(regs[11])        # 40023 (Außentemp, kann negativ sein)
@@ -343,17 +300,13 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # 40730+40731: Wärmemenge  (uint32, 0,1 kWh → /10 → kWh)
         # 40732+40733: Volumen     (uint32, Einheit Liter)
         # 40734+40735: Leistung    (uint32, Einheit W)
-        r = await self._rhr(client, 730, 6)
-        if not r.isError():
-            regs = r.registers
+        if (regs := await self._read_block(730, 6)) is not None:
             data["waermemenge_fw"] = _read32(regs, 0) / 10   # 40730+40731
             data["volumen_fw"]     = _read32(regs, 2)         # 40732+40733
             data["leistung_fw"]    = _read32(regs, 4)         # 40734+40735
 
         # ── Block 3c: HK1 Heizkurve-Sollwerte (40117-40121, 5 Reg.) ──────────
-        r = await self._rhr(client, 117, 5)
-        if not r.isError():
-            regs = r.registers
+        if (regs := await self._read_block(117, 5)) is not None:
             if regs[0] not in _SENTINEL: data["hk1_vl_soll_20at"]  = regs[0]   # 40117
             if regs[1] not in _SENTINEL: data["hk1_vl_soll_5at"]   = regs[1]   # 40118
             if regs[2] not in _SENTINEL: data["hk1_vl_soll_m10at"] = regs[2]   # 40119
@@ -361,9 +314,7 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if regs[4] not in _SENTINEL: data["hk1_min_vl"]         = regs[4]   # 40121
 
         # ── Block 4: WÜST-Funktion + Betriebsmodi (40215-40244, 30 Reg.) ──
-        r = await self._rhr(client, 215, 30)
-        if not r.isError():
-            regs = r.registers
+        if (regs := await self._read_block(215, 30)) is not None:
             if (v := _status(regs[0]))  is not None: data["funktion_wuest"]    = v   # 40215
             if (v := _status(regs[25])) is not None: data["betriebsmodus_hk0"] = v   # 40240
             if (v := _status(regs[26])) is not None: data["betriebsmodus_hk1"] = v   # 40241
@@ -372,33 +323,12 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return data
 
-    async def _write_fc(
-        self, client: AsyncModbusTcpClient, func: str, address: int, payload
-    ):
-        """Ruft write_register (FC06) bzw. write_registers (FC16) versionssicher auf.
-
-        Gibt die Modbus-Antwort zurück oder ``None``, wenn keine Signatur passt.
-        """
-        method = getattr(client, func)
-        for kw in (
-            {"device_id": self.slave_id},
-            {"slave": self.slave_id},
-            {"unit": self.slave_id},
-            {},
-        ):
-            try:
-                return await method(address=address, **payload, **kw)
-            except TypeError:
-                continue
-        return None
-
     async def async_write_register(self, pdf_register: int, value: int) -> None:
         """Schreibt einen Holding-Register-Wert.
 
         Reihenfolge: zuerst FC16 (write multiple registers), dann als Fallback
-        FC06 (write single register). Der Fallback greift sowohl bei einer
-        Exception-Antwort des Geräts als auch bei Timeout oder Verbindungsfehler,
-        falls ein Gateway FC16 gar nicht beantwortet.
+        FC06 (write single register), falls das Gerät FC16 ablehnt oder nicht
+        beantwortet.
 
         Ob der Regler den Wert wirklich übernimmt, lässt sich erst nach einer
         Weile sagen: Das CM12 schreibt zuerst in sein Spiegelregister und reicht
@@ -411,57 +341,34 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         address = pdf_register - 40000  # PDF-Registernummer → Modbus-Adresse
         try:
-            async with self._io_lock:
-                client = await self._get_client()
-
-                try:
-                    result = await self._write_fc(
-                        client, "write_registers", address, {"values": [value]}
-                    )
-                except ModbusException as err:
-                    _LOGGER.debug(
-                        "FC16 auf Register %s fehlgeschlagen (%s), versuche FC06",
-                        pdf_register, err,
-                    )
-                    result = None
-                    # Nach Timeout/Verbindungsabbruch ggf. neu verbinden
-                    client = await self._get_client()
-
-                # Lehnt das Gerät FC16 ab (illegale Funktion), FC06 versuchen.
-                if result is None or result.isError():
-                    result = await self._write_fc(
-                        client, "write_register", address, {"value": value}
-                    )
-
-                if result is None:
-                    raise HomeAssistantError(
-                        "Inkompatible pymodbus-Version – keine passende "
-                        "write_register-Signatur gefunden"
-                    )
-                if result.isError():
-                    raise HomeAssistantError(
-                        f"Gerät hat das Schreiben von Register {pdf_register} "
-                        f"(Adresse {address}, Wert {value}) abgelehnt: {result}"
-                    )
-
-                # Sofortige Rücklesung: zeigt nur, ob das CM12 den Wert in sein
-                # Spiegelregister übernommen hat – nicht, ob der Regler ihn hält.
-                check = await self._rhr(client, address, 1)
-                if not check.isError():
-                    _LOGGER.debug(
-                        "Register %s: geschrieben %s, sofort gelesen %s",
-                        pdf_register, value, check.registers[0],
-                    )
-
-                self._pending_writes[address] = _PendingWrite(
-                    pdf_register=pdf_register,
-                    value=value,
-                    written_at=time.monotonic(),
+            try:
+                await self.unit.write_registers(address, [value])
+            except (IllegalFunctionError, ModbusTimeoutError) as err:
+                _LOGGER.debug(
+                    "FC16 auf Register %s fehlgeschlagen (%s), versuche FC06",
+                    pdf_register, err,
                 )
-        except HomeAssistantError:
-            raise
-        except Exception as err:
-            self._client = None
+                await self.unit.write_register(address, value)
+
+            # Sofortige Rücklesung: zeigt nur, ob das CM12 den Wert in sein
+            # Spiegelregister übernommen hat – nicht, ob der Regler ihn hält.
+            if (regs := await self._read_block(address, 1)) is not None:
+                _LOGGER.debug(
+                    "Register %s: geschrieben %s, sofort gelesen %s",
+                    pdf_register, value, regs[0],
+                )
+        except ModbusExceptionError as err:
+            raise HomeAssistantError(
+                f"Gerät hat das Schreiben von Register {pdf_register} "
+                f"(Wert {value}) abgelehnt: {err}"
+            ) from err
+        except ModbusError as err:
             raise HomeAssistantError(
                 f"Fehler beim Schreiben von Register {pdf_register}: {err}"
             ) from err
+
+        self._pending_writes[address] = _PendingWrite(
+            pdf_register=pdf_register,
+            value=value,
+            written_at=time.monotonic(),
+        )

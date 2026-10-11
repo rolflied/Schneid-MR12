@@ -9,14 +9,13 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS, DOMAIN
-from .coordinator import SchneidModbusCoordinator
+from .const import CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS
+from .coordinator import SchneidConfigEntry, SchneidModbusCoordinator
 from .entity import (
     SchneidBaseEntity,
     device_info_fw,
@@ -91,10 +90,10 @@ def _hk_binary(hk_idx: int) -> tuple[SchneidBinarySensorDescription, ...]:
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SchneidConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: SchneidModbusCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     config = {**entry.data, **entry.options}
     enabled_hks = {int(h) for h in config.get(CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS)}
     eid = entry.entry_id

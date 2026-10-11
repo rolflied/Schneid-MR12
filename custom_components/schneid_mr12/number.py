@@ -10,9 +10,9 @@ from homeassistant.components.number import (
     NumberEntityDescription,
     NumberMode,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -24,12 +24,11 @@ from .const import (
     DEFAULT_READ_ONLY,
     DOMAIN,
 )
-from .coordinator import SchneidModbusCoordinator
+from .coordinator import SchneidConfigEntry, SchneidModbusCoordinator
 from .entity import (
     SchneidBaseEntity,
     device_info_hk,
     device_info_main,
-    device_info_puffer,
 )
 
 
@@ -40,47 +39,10 @@ class SchneidNumberDescription(NumberEntityDescription):
     data_key: str = ""
     register: int = 0
     write_scale: int = 1
-    # "puffer" → Pufferspeicher, "hk1" → Heizkreis 1, "main" → Hauptgerät
-    device_group: str = "puffer"
+    # "hk1" → Heizkreis 1, "main" → Hauptgerät
+    device_group: str = "main"
     entity_category: EntityCategory | None = None
 
-
-NUMBER_DESCRIPTIONS_PUFFER: tuple[SchneidNumberDescription, ...] = (
-
-    # ── Pufferspeicher – Schalttemperaturen ───────────────────────────────────
-    SchneidNumberDescription(
-        key="einschalt_puffer",
-        data_key="einschalt_puffer",
-        name="Puffer Einschalttemperatur",
-        register=40704,
-        native_min_value=20,
-        native_max_value=80,
-        native_step=0.1,
-        # Register wird in 0,1 °C geführt (Lesen ÷10), also ×10 schreiben.
-        write_scale=10,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        device_class=NumberDeviceClass.TEMPERATURE,
-        icon="mdi:thermometer-plus",
-        mode=NumberMode.BOX,
-        device_group="puffer",
-    ),
-    SchneidNumberDescription(
-        key="ausschalt_puffer",
-        data_key="ausschalt_puffer",
-        name="Puffer Ausschalttemperatur",
-        register=40705,
-        native_min_value=20,
-        native_max_value=80,
-        native_step=0.1,
-        # Register wird in 0,1 °C geführt (Lesen ÷10), also ×10 schreiben.
-        write_scale=10,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        device_class=NumberDeviceClass.TEMPERATURE,
-        icon="mdi:thermometer-minus",
-        mode=NumberMode.BOX,
-        device_group="puffer",
-    ),
-)
 
 NUMBER_DESCRIPTIONS_HK1: tuple[SchneidNumberDescription, ...] = (
 
@@ -256,16 +218,28 @@ NUMBER_DESCRIPTIONS_MAIN: tuple[SchneidNumberDescription, ...] = (
 )
 
 
+# Früher als Number angelegt, laut Registerdoku aber nur Anzeigewerte
+# (Block 700, nicht R/W): Der Regler verwirft Schreibvorgänge darauf.
+_REMOVED_NUMBER_KEYS = ("einschalt_puffer", "ausschalt_puffer")
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SchneidConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    ent_reg = er.async_get(hass)
+    for key in _REMOVED_NUMBER_KEYS:
+        if entity_id := ent_reg.async_get_entity_id(
+            "number", DOMAIN, f"{entry.entry_id}_{key}"
+        ):
+            ent_reg.async_remove(entity_id)
+
     config = {**entry.data, **entry.options}
     if config.get(CONF_READ_ONLY, DEFAULT_READ_ONLY):
         return  # Im Nur-Lese-Modus keine schreibbaren Entitäten anlegen
 
-    coordinator: SchneidModbusCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     eid = entry.entry_id
     enabled_hks = {
         int(h) for h in config.get(CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS)
@@ -274,8 +248,6 @@ async def async_setup_entry(
     entities: list[NumberEntity] = []
     for desc in NUMBER_DESCRIPTIONS_MAIN:
         entities.append(SchneidNumber(coordinator, eid, desc, device_info_main(eid)))
-    for desc in NUMBER_DESCRIPTIONS_PUFFER:
-        entities.append(SchneidNumber(coordinator, eid, desc, device_info_puffer(eid)))
     # Heizkurven-Sollwerte nur anlegen, wenn Heizkreis 1 auch aktiviert ist.
     if 1 in enabled_hks:
         for desc in NUMBER_DESCRIPTIONS_HK1:
