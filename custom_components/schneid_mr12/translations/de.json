@@ -23,7 +23,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Verbindung fehlgeschlagen. Bitte IP-Adresse, Port und Netzwerkverbindung prüfen."
+      "cannot_connect": "Verbindung fehlgeschlagen. Bitte IP-Adresse, Port und Modbus Slave-ID prüfen.",
+      "unknown": "Unerwarteter Fehler, Details im Protokoll."
     },
     "abort": {
       "already_configured": "Diese Übergabestation ist bereits konfiguriert."
@@ -49,7 +50,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Verbindung fehlgeschlagen. Bitte IP-Adresse und Port prüfen."
+      "cannot_connect": "Verbindung fehlgeschlagen. Bitte IP-Adresse, Port und Modbus Slave-ID prüfen.",
+      "unknown": "Unerwarteter Fehler, Details im Protokoll."
     }
   }
 }

@@ -23,7 +23,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Connection failed. Please check the IP address, port, and network connection."
+      "cannot_connect": "Connection failed – please check IP address, port and Modbus slave ID.",
+      "unknown": "Unexpected error, see the log for details."
     },
     "abort": {
       "already_configured": "This transfer station is already configured."
@@ -49,7 +50,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Connection failed. Please check the IP address and port."
+      "cannot_connect": "Connection failed – please check IP address, port and Modbus slave ID.",
+      "unknown": "Unexpected error, see the log for details."
     }
   }
 }

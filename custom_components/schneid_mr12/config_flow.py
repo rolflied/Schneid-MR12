@@ -6,12 +6,14 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from pymodbus.client import AsyncModbusTcpClient
+from modbus_connection import ModbusError
 
 from homeassistant import config_entries
+from homeassistant.components.modbus import async_get_temporary_unit
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import (
     BooleanSelector,
     SelectSelector,
@@ -19,6 +21,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
+from . import create_modbus_params
 from .const import (
     CONF_HEATING_CIRCUITS,
     CONF_READ_ONLY,
@@ -67,15 +70,28 @@ STEP_USER_SCHEMA = vol.Schema(
 )
 
 
-async def _test_connection(host: str, port: int) -> bool:
-    """Versucht, eine Verbindung zum Gerät herzustellen."""
-    client = AsyncModbusTcpClient(host=host, port=port, timeout=5)
+# Register, an dem der Verbindungstest prüft, ob wirklich ein MR-12 antwortet
+# (40600, T6 Außentemperatur)
+_PROBE_ADDRESS = 600
+
+
+async def _test_connection(hass: HomeAssistant, config: dict[str, Any]) -> str | None:
+    """Prüft, ob unter Host/Port/Slave-ID ein MR-12 per Modbus antwortet.
+
+    Gibt ``None`` bei Erfolg zurück, sonst den Fehlerschlüssel für das Formular.
+    """
     try:
-        return await client.connect()
+        async with async_get_temporary_unit(
+            hass, create_modbus_params(config), config[CONF_SLAVE_ID]
+        ) as unit:
+            await unit.read_holding_registers(_PROBE_ADDRESS, 1)
+    except (HomeAssistantError, ModbusError):
+        _LOGGER.debug("Verbindungstest fehlgeschlagen", exc_info=True)
+        return "cannot_connect"
     except Exception:
-        return False
-    finally:
-        client.close()
+        _LOGGER.exception("Unerwarteter Fehler beim Verbindungstest")
+        return "unknown"
+    return None
 
 
 class SchneidMR12ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -85,15 +101,15 @@ class SchneidMR12ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
 
         if user_input is not None:
             host = user_input[CONF_HOST]
             port = user_input[CONF_PORT]
 
-            if not await _test_connection(host, port):
-                errors["base"] = "cannot_connect"
+            if error := await _test_connection(self.hass, user_input):
+                errors["base"] = error
             else:
                 unique_id = f"{host}:{port}:{user_input[CONF_SLAVE_ID]}"
                 await self.async_set_unique_id(unique_id)
@@ -127,17 +143,14 @@ class SchneidMR12OptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
 
         current = {**self.config_entry.data, **self.config_entry.options}
 
         if user_input is not None:
-            host = user_input.get(CONF_HOST, current[CONF_HOST])
-            port = user_input.get(CONF_PORT, current[CONF_PORT])
-
-            if not await _test_connection(host, port):
-                errors["base"] = "cannot_connect"
+            if error := await _test_connection(self.hass, {**current, **user_input}):
+                errors["base"] = error
             else:
                 return self.async_create_entry(title="", data=user_input)
 

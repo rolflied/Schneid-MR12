@@ -15,7 +15,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Connection failed – please check the IP address and port."
+      "cannot_connect": "Connection failed – please check IP address, port and Modbus slave ID.",
+      "unknown": "Unexpected error, see the log for details."
     },
     "abort": {
       "already_configured": "This device is already configured."
@@ -36,7 +37,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Connection failed – please check the IP address and port."
+      "cannot_connect": "Connection failed – please check IP address, port and Modbus slave ID.",
+      "unknown": "Unexpected error, see the log for details."
     }
   }
 }

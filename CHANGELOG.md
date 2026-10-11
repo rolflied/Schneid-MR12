@@ -4,9 +4,33 @@ Alle nennenswerten Änderungen an der Integration. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
-## [0.3.1] – unveröffentlicht
+## [0.4.0] – unveröffentlicht
+
+Schwerpunkt: Umstellung auf die geteilte Modbus-Verbindung von Home Assistant
+(seit 2026.9). **Mindestversion jetzt Home Assistant 2026.10.**
+
+### Geändert
+- Die Integration baut keine eigene pymodbus-Verbindung mehr auf, sondern holt
+  sich über `homeassistant.components.modbus.async_get_unit` eine Verbindung
+  aus der Modbus-Integration von Home Assistant. Diese baut die Verbindung bei
+  Bedarf selbst auf, stellt alle Anfragen an das Gerät hintereinander und wird
+  geteilt, wenn eine weitere Integration dasselbe CM-12 abfragt. Beim Entladen
+  wird sie automatisch freigegeben.
+- Die eigene pymodbus-Abhängigkeit und die Weiche für verschiedene
+  pymodbus-Versionen entfallen. Abhängigkeit im Manifest ist jetzt `modbus`.
+- Fehler kommen typisiert aus `modbus-connection`: Eine Modbus-Exception des
+  Geräts (z. B. Register nicht vorhanden) überspringt nur den betroffenen
+  Block, Verbindungsabbruch und Timeout lassen das Update scheitern.
+- Laufzeitdaten über `entry.runtime_data` statt `hass.data`, der Coordinator
+  bekommt den Config-Entry übergeben, Config-Flow mit `ConfigFlowResult`.
 
 ### Behoben
+- Antwortet das Gerät auf keinen einzigen Registerblock, gilt das Update jetzt
+  als fehlgeschlagen. Vorher meldete es Erfolg mit leeren Daten, und alle
+  Entitäten zeigten „Unbekannt“ statt „Nicht verfügbar“.
+- Der Verbindungstest im Einrichtungsdialog liest jetzt ein echtes Register
+  (40600). Vorher prüfte er nur, ob der TCP-Port offen ist, und meldete auch
+  bei falscher Slave-ID oder fremdem Gerät Erfolg.
 - **Puffer-Ein-/Ausschalttemperatur sind nicht mehr als Eingabefeld
   einstellbar.** 40704/40705 liegen im Block der Ist-/Anzeigewerte und sind
   laut Registerdoku nicht beschreibbar. Das CM-12 quittiert den Schreibbefehl,
@@ -88,7 +112,7 @@ machen, Entitäten anhand eines vollständigen Registerabzugs der Anlage
   Binärsensoren, schreibbaren Sollwerten und Betriebsmodus, Unterteilung in
   Geräte (Station, Fernwärme, Pufferspeicher, Heizkreise), Nur-Lese-Modus.
 
-[0.3.1]: https://github.com/rolflied/Schneid-MR12/compare/v0.3.0...master
+[0.4.0]: https://github.com/rolflied/Schneid-MR12/compare/v0.3.0...master
 [0.3.0]: https://github.com/rolflied/Schneid-MR12/compare/7c92a3c...ccr-32dc38b4-9q7lxn
 [0.2.0]: https://github.com/rolflied/Schneid-MR12/compare/6880ec6...7c92a3c
 [0.1.0]: https://github.com/rolflied/Schneid-MR12/commit/6880ec6

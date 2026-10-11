@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -17,11 +16,10 @@ from .const import (
     CONF_READ_ONLY,
     DEFAULT_HEATING_CIRCUITS,
     DEFAULT_READ_ONLY,
-    DOMAIN,
     FUNKTION_WUEST_OPTIONS,
     HANDBETRIEB_VENTIL_OPTIONS,
 )
-from .coordinator import SchneidModbusCoordinator
+from .coordinator import SchneidConfigEntry, SchneidModbusCoordinator
 from .entity import SchneidBaseEntity, device_info_fw, device_info_hk, device_info_main
 
 
@@ -96,14 +94,14 @@ def _hk_selects(hk_idx: int) -> tuple[SchneidSelectDescription, ...]:
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SchneidConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     config = {**entry.data, **entry.options}
     if config.get(CONF_READ_ONLY, DEFAULT_READ_ONLY):
         return  # Im Nur-Lese-Modus keine schreibbaren Entitäten anlegen
 
-    coordinator: SchneidModbusCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     eid = entry.entry_id
     enabled_hks = {
         int(h) for h in config.get(CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS)
