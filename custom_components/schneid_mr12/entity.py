@@ -8,7 +8,11 @@ from .coordinator import SchneidModbusCoordinator
 
 
 def device_info_main(entry_id: str) -> DeviceInfo:
-    """Hauptgerät: Schneid MR-12 Übergabestation."""
+    """Hauptgerät: Schneid MR-12 Übergabestation.
+
+    Wird in ``async_setup_entry`` vor den Plattformen registriert, damit die
+    Untergeräte per ``via_device_id`` (HA 2026.8+) darauf verweisen können.
+    """
     return DeviceInfo(
         identifiers={(DOMAIN, entry_id)},
         name="Schneid MR-12",
@@ -17,36 +21,36 @@ def device_info_main(entry_id: str) -> DeviceInfo:
     )
 
 
-def device_info_fw(entry_id: str) -> DeviceInfo:
+def device_info_fw(entry_id: str, via_device_id: str) -> DeviceInfo:
     """Sub-Gerät: Fernwärmekreislauf."""
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_fw")},
         name="Fernwärme",
         manufacturer="Schneid",
         model="MR-12",
-        via_device=(DOMAIN, entry_id),
+        via_device_id=via_device_id,
     )
 
 
-def device_info_hk(entry_id: str, hk_idx: int) -> DeviceInfo:
+def device_info_hk(entry_id: str, hk_idx: int, via_device_id: str) -> DeviceInfo:
     """Sub-Gerät: Heizkreis 0–3."""
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_hk{hk_idx}")},
         name=f"Heizkreis {hk_idx}",
         manufacturer="Schneid",
         model="MR-12",
-        via_device=(DOMAIN, entry_id),
+        via_device_id=via_device_id,
     )
 
 
-def device_info_puffer(entry_id: str) -> DeviceInfo:
+def device_info_puffer(entry_id: str, via_device_id: str) -> DeviceInfo:
     """Sub-Gerät: Pufferspeicher."""
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_puffer")},
         name="Pufferspeicher",
         manufacturer="Schneid",
         model="MR-12",
-        via_device=(DOMAIN, entry_id),
+        via_device_id=via_device_id,
     )
 
 

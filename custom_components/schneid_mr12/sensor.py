@@ -186,10 +186,9 @@ SENSOR_DESC_FW: tuple[SchneidSensorDescription, ...] = (
         key="waermemenge_fw",
         data_key="waermemenge_fw",
         name="Wärmemenge",
-        # device_class=GAS + kWh ermöglicht Einbindung im Energie-Dashboard
-        # unter "Gasverbrauch" als kWh-basierter Zähler
+        # Seit HA 2026.10 akzeptiert device_class GAS nur noch Volumeneinheiten.
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.GAS,
+        device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         suggested_display_precision=1,
         icon="mdi:counter",
@@ -374,12 +373,12 @@ async def async_setup_entry(
         entities.append(SchneidSensor(coordinator, eid, desc, di_main))
 
     # Fernwärme-Gerät
-    di_fw = device_info_fw(eid)
+    di_fw = device_info_fw(eid, coordinator.main_device_id)
     for desc in SENSOR_DESC_FW:
         entities.append(SchneidSensor(coordinator, eid, desc, di_fw))
 
     # Pufferspeicher-Gerät
-    di_puffer = device_info_puffer(eid)
+    di_puffer = device_info_puffer(eid, coordinator.main_device_id)
     for desc in SENSOR_DESC_PUFFER:
         entities.append(SchneidSensor(coordinator, eid, desc, di_puffer))
 
@@ -387,7 +386,7 @@ async def async_setup_entry(
     for hk_idx in range(4):
         if hk_idx not in enabled_hks:
             continue
-        di_hk = device_info_hk(eid, hk_idx)
+        di_hk = device_info_hk(eid, hk_idx, coordinator.main_device_id)
         for desc in _hk_sensors(hk_idx):
             entities.append(SchneidSensor(coordinator, eid, desc, di_hk))
 

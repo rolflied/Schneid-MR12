@@ -111,11 +111,11 @@ async def async_setup_entry(
     for desc in SELECT_DESC_MAIN:
         entities.append(SchneidSelect(coordinator, eid, desc, device_info_main(eid)))
     for desc in SELECT_DESC_FW:
-        entities.append(SchneidSelect(coordinator, eid, desc, device_info_fw(eid)))
+        entities.append(SchneidSelect(coordinator, eid, desc, device_info_fw(eid, coordinator.main_device_id)))
     for hk_idx in range(4):
         if hk_idx not in enabled_hks:
             continue
-        di_hk = device_info_hk(eid, hk_idx)
+        di_hk = device_info_hk(eid, hk_idx, coordinator.main_device_id)
         for desc in _hk_selects(hk_idx):
             entities.append(SchneidSelect(coordinator, eid, desc, di_hk))
     async_add_entities(entities)

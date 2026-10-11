@@ -251,7 +251,7 @@ async def async_setup_entry(
     # Heizkurven-Sollwerte nur anlegen, wenn Heizkreis 1 auch aktiviert ist.
     if 1 in enabled_hks:
         for desc in NUMBER_DESCRIPTIONS_HK1:
-            entities.append(SchneidNumber(coordinator, eid, desc, device_info_hk(eid, 1)))
+            entities.append(SchneidNumber(coordinator, eid, desc, device_info_hk(eid, 1, coordinator.main_device_id)))
     async_add_entities(entities)
 
 

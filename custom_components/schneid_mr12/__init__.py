@@ -10,9 +10,11 @@ from modbus_connection import ModbusTcpParams
 from homeassistant.components.modbus import async_get_unit
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
 from .const import CONF_SCAN_INTERVAL, CONF_SLAVE_ID, DEFAULT_SCAN_INTERVAL
 from .coordinator import SchneidConfigEntry, SchneidModbusCoordinator
+from .entity import device_info_main
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -44,6 +46,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: SchneidConfigEntry) -> b
         scan_interval=config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
     )
     await coordinator.async_config_entry_first_refresh()
+
+    # Hauptgerät vorab registrieren: Die Untergeräte (Fernwärme, Puffer,
+    # Heizkreise) verweisen per via_device_id auf seine Geräte-ID.
+    main_device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id, **device_info_main(entry.entry_id)
+    )
+    coordinator.main_device_id = main_device.id
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
