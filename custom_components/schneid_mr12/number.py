@@ -16,7 +16,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_READ_ONLY, DEFAULT_READ_ONLY, DOMAIN
+from .const import (
+    CONF_HEATING_CIRCUITS,
+    CONF_READ_ONLY,
+    DEFAULT_HEATING_CIRCUITS,
+    DEFAULT_READ_ONLY,
+    DOMAIN,
+)
 from .coordinator import SchneidModbusCoordinator
 from .entity import SchneidBaseEntity, device_info_hk, device_info_puffer
 
@@ -42,7 +48,9 @@ NUMBER_DESCRIPTIONS_PUFFER: tuple[SchneidNumberDescription, ...] = (
         register=40704,
         native_min_value=20,
         native_max_value=80,
-        native_step=1,
+        native_step=0.1,
+        # Register wird in 0,1 °C geführt (Lesen ÷10), also ×10 schreiben.
+        write_scale=10,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=NumberDeviceClass.TEMPERATURE,
         icon="mdi:thermometer-plus",
@@ -56,7 +64,9 @@ NUMBER_DESCRIPTIONS_PUFFER: tuple[SchneidNumberDescription, ...] = (
         register=40705,
         native_min_value=20,
         native_max_value=80,
-        native_step=1,
+        native_step=0.1,
+        # Register wird in 0,1 °C geführt (Lesen ÷10), also ×10 schreiben.
+        write_scale=10,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=NumberDeviceClass.TEMPERATURE,
         icon="mdi:thermometer-minus",
@@ -152,12 +162,17 @@ async def async_setup_entry(
 
     coordinator: SchneidModbusCoordinator = hass.data[DOMAIN][entry.entry_id]
     eid = entry.entry_id
+    enabled_hks = {
+        int(h) for h in config.get(CONF_HEATING_CIRCUITS, DEFAULT_HEATING_CIRCUITS)
+    }
 
     entities: list[NumberEntity] = []
     for desc in NUMBER_DESCRIPTIONS_PUFFER:
         entities.append(SchneidNumber(coordinator, eid, desc, device_info_puffer(eid)))
-    for desc in NUMBER_DESCRIPTIONS_HK1:
-        entities.append(SchneidNumber(coordinator, eid, desc, device_info_hk(eid, 1)))
+    # Heizkurven-Sollwerte nur anlegen, wenn Heizkreis 1 auch aktiviert ist.
+    if 1 in enabled_hks:
+        for desc in NUMBER_DESCRIPTIONS_HK1:
+            entities.append(SchneidNumber(coordinator, eid, desc, device_info_hk(eid, 1)))
     async_add_entities(entities)
 
 
@@ -189,9 +204,11 @@ class SchneidNumber(SchneidBaseEntity, NumberEntity):
         if raw_value < 0:
             raw_value = raw_value & 0xFFFF
 
-        success = await self.coordinator.async_write_register(
+        # Wirft HomeAssistantError, wenn das Gerät den Schreibvorgang ablehnt.
+        await self.coordinator.async_write_register(
             self.entity_description.register, raw_value
         )
-        if success:
-            self.coordinator.data[self.entity_description.data_key] = value
-            self.async_write_ha_state()
+        # Kein optimistisches Setzen des Caches: erst nach einer echten Rücklesung
+        # den Wert übernehmen, damit die Oberfläche den tatsächlichen Gerätewert
+        # zeigt und keinen Erfolg vortäuscht, der vom Gerät nicht übernommen wurde.
+        await self.coordinator.async_request_refresh()

@@ -1,5 +1,6 @@
 """DataUpdateCoordinator für Schneid MR-12 über Modbus TCP."""
 
+import asyncio
 import logging
 from datetime import timedelta
 from typing import Any
@@ -8,6 +9,7 @@ from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN
@@ -78,6 +80,10 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.port = port
         self.slave_id = slave_id
         self._client: AsyncModbusTcpClient | None = None
+        # Serialisiert Lesen und Schreiben: der pymodbus-Client darf keine zwei
+        # Anfragen gleichzeitig auf einer Verbindung haben, und viele CM12-/
+        # Modbus-Gateways verarbeiten ohnehin nur eine Anfrage pro Zeit.
+        self._io_lock = asyncio.Lock()
 
     async def _get_client(self) -> AsyncModbusTcpClient:
         """Gibt einen verbundenen Client zurück – stellt bei Bedarf neu her."""
@@ -132,8 +138,9 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            client = await self._get_client()
-            return await self._read_all(client)
+            async with self._io_lock:
+                client = await self._get_client()
+                return await self._read_all(client)
         except UpdateFailed:
             raise
         except ModbusException as err:
@@ -285,34 +292,83 @@ class SchneidModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return data
 
-    async def async_write_register(self, pdf_register: int, value: int) -> bool:
-        """Schreibt einen einzelnen Holding-Register-Wert (Funktionscode 06)."""
+    async def _write_fc(
+        self, client: AsyncModbusTcpClient, func: str, address: int, payload
+    ):
+        """Ruft write_register (FC06) bzw. write_registers (FC16) versionssicher auf.
+
+        Gibt die Modbus-Antwort zurück oder ``None``, wenn keine Signatur passt.
+        """
+        method = getattr(client, func)
+        for kw in (
+            {"device_id": self.slave_id},
+            {"slave": self.slave_id},
+            {"unit": self.slave_id},
+            {},
+        ):
+            try:
+                return await method(address=address, **payload, **kw)
+            except TypeError:
+                continue
+        return None
+
+    async def async_write_register(self, pdf_register: int, value: int) -> None:
+        """Schreibt einen Holding-Register-Wert und prüft, ob er übernommen wurde.
+
+        Reihenfolge: zuerst FC16 (write multiple registers), dann als Fallback
+        FC06 (write single register). Viele Schneid-/CM12-Firmwares übernehmen
+        Parameteränderungen nur über FC16 zuverlässig.
+
+        Nach dem Schreiben wird das Register zurückgelesen. Übernimmt das Gerät
+        den Wert nicht (z. B. weil das CM12 das Spiegelregister beim nächsten
+        Regler-Poll wieder überschreibt), wird das als Warnung protokolliert –
+        so ist im Log eindeutig sichtbar, ob Lesen oder Gerät das Problem ist.
+
+        Wirft ``HomeAssistantError``, wenn der Schreibvorgang auf Modbus-Ebene
+        fehlschlägt, damit der Fehler in der Oberfläche sichtbar wird.
+        """
         address = pdf_register - 40000  # PDF-Registernummer → Modbus-Adresse
         try:
-            client = await self._get_client()
-            result = None
-            for kw in (
-                {"device_id": self.slave_id},
-                {"slave": self.slave_id},
-                {"unit": self.slave_id},
-                {},
-            ):
-                try:
-                    result = await client.write_register(address=address, value=value, **kw)
-                    break
-                except TypeError:
-                    continue
-            if result is None:
-                raise UpdateFailed("Inkompatible pymodbus-Version – keine passende write_register-Signatur")
+            async with self._io_lock:
+                client = await self._get_client()
 
-            if result.isError():
-                _LOGGER.error(
-                    "Modbus-Schreibfehler Register %s (Adresse %s): %s",
-                    pdf_register, address, result,
+                result = await self._write_fc(
+                    client, "write_registers", address, {"values": [value]}
                 )
-                return False
-            return True
+                # Lehnt das Gerät FC16 ab (illegale Funktion), FC06 versuchen.
+                if result is None or result.isError():
+                    result = await self._write_fc(
+                        client, "write_register", address, {"value": value}
+                    )
+
+                if result is None:
+                    raise HomeAssistantError(
+                        "Inkompatible pymodbus-Version – keine passende "
+                        "write_register-Signatur gefunden"
+                    )
+                if result.isError():
+                    raise HomeAssistantError(
+                        f"Gerät hat das Schreiben von Register {pdf_register} "
+                        f"(Adresse {address}, Wert {value}) abgelehnt: {result}"
+                    )
+
+                # Rücklesung zur Verifikation (best effort).
+                check = await self._rhr(client, address, 1)
+                if not check.isError():
+                    actual = check.registers[0]
+                    if actual != value:
+                        _LOGGER.warning(
+                            "Register %s (Adresse %s) nach dem Schreiben nicht "
+                            "übernommen: geschrieben %s, gelesen %s. Das CM12/der "
+                            "Regler hat den Wert nicht persistiert – vermutlich "
+                            "erlaubt die Firmware kein direktes Schreiben dieses "
+                            "Parameters über Modbus.",
+                            pdf_register, address, value, actual,
+                        )
+        except HomeAssistantError:
+            raise
         except Exception as err:
-            _LOGGER.error("Fehler beim Schreiben von Register %s: %s", pdf_register, err)
             self._client = None
-            return False
+            raise HomeAssistantError(
+                f"Fehler beim Schreiben von Register {pdf_register}: {err}"
+            ) from err

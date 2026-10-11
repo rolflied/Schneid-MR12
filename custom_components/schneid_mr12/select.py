@@ -118,9 +118,9 @@ class SchneidSelect(SchneidBaseEntity, SelectEntity):
         if value is None:
             return
 
-        success = await self.coordinator.async_write_register(
+        # Wirft HomeAssistantError, wenn das Gerät den Schreibvorgang ablehnt.
+        await self.coordinator.async_write_register(
             self.entity_description.register, value
         )
-        if success:
-            self.coordinator.data[self.entity_description.data_key] = value
-            self.async_write_ha_state()
+        # Kein optimistisches Setzen des Caches: echter Gerätewert per Rücklesung.
+        await self.coordinator.async_request_refresh()

@@ -1,11 +1,13 @@
 {
   "domain": "schneid_mr12",
   "name": "Schneid MR-12 District Heating",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "config_flow": true,
   "documentation": "https://github.com/rolflied/Schneid-MR12",
-  "requirements": [],
+  "integration_type": "device",
+  "requirements": ["pymodbus>=3.5.0,<4.0.0"],
   "dependencies": [],
   "codeowners": ["@rolflied"],
-  "iot_class": "local_polling"
+  "iot_class": "local_polling",
+  "loggers": ["pymodbus"]
 }
