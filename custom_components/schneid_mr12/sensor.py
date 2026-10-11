@@ -107,6 +107,14 @@ SENSOR_DESC_MAIN: tuple[SchneidSensorDescription, ...] = (
         icon="mdi:restart",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    SchneidSensorDescription(
+        key="regler_zeit",
+        data_key="regler_zeit",
+        name="Regler-Uhrzeit",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        icon="mdi:clock-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
 )
 
 # ─── Fernwärme-Sensoren ───────────────────────────────────────────────────────
@@ -188,6 +196,8 @@ SENSOR_DESC_FW: tuple[SchneidSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         suggested_display_precision=1,
         icon="mdi:counter",
+        # Interner Wärmezähler liefert ohne angeschlossenen Zähler dauerhaft 0
+        entity_registry_enabled_default=False,
     ),
     SchneidSensorDescription(
         key="leistung_fw",
@@ -197,6 +207,8 @@ SENSOR_DESC_FW: tuple[SchneidSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:lightning-bolt",
+        # Interner Wärmezähler liefert ohne angeschlossenen Zähler dauerhaft 0
+        entity_registry_enabled_default=False,
     ),
     SchneidSensorDescription(
         key="volumen_fw",
@@ -207,6 +219,8 @@ SENSOR_DESC_FW: tuple[SchneidSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         suggested_display_precision=0,
         icon="mdi:water-outline",
+        # Interner Wärmezähler liefert ohne angeschlossenen Zähler dauerhaft 0
+        entity_registry_enabled_default=False,
     ),
 )
 

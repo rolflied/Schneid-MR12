@@ -56,6 +56,8 @@ SELECT_DESC_MAIN: tuple[SchneidSelectDescription, ...] = (
         register=40030,
         options_map=AUSHEIZPROGRAMM_OPTIONS,
         icon="mdi:fire",
+        # Startet ein mehrtägiges Programm – nur bewusst aktivieren.
+        entity_registry_enabled_default=False,
     ),
 )
 
@@ -69,6 +71,8 @@ SELECT_DESC_FW: tuple[SchneidSelectDescription, ...] = (
         register=40050,
         options_map=HANDBETRIEB_VENTIL_OPTIONS,
         icon="mdi:valve",
+        # Öffnet/schließt das Primärventil manuell – nur bewusst aktivieren.
+        entity_registry_enabled_default=False,
     ),
 )
 

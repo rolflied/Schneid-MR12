@@ -170,7 +170,8 @@ NUMBER_DESCRIPTIONS_MAIN: tuple[SchneidNumberDescription, ...] = (
         native_step=0.1,
         write_scale=10,  # Register in 0,1 °C
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        device_class=NumberDeviceClass.TEMPERATURE,
+        # Temperaturdifferenz: kein device_class TEMPERATURE, sonst rechnet HA
+        # bei °F-Nutzern 0 °C Differenz in 32 °F um.
         icon="mdi:thermometer-alert",
         mode=NumberMode.BOX,
         device_group="main",
@@ -215,7 +216,8 @@ NUMBER_DESCRIPTIONS_MAIN: tuple[SchneidNumberDescription, ...] = (
         native_max_value=30,
         native_step=1,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        device_class=NumberDeviceClass.TEMPERATURE,
+        # Temperaturdifferenz: kein device_class TEMPERATURE, sonst rechnet HA
+        # bei °F-Nutzern 0 °C Differenz in 32 °F um.
         icon="mdi:thermometer-chevron-up",
         mode=NumberMode.BOX,
         device_group="main",
